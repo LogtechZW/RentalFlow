@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 
 export function OrganizationSetupPage() {
   const navigate = useNavigate();
-  const { currentUser } = useRentFlow();
+  const { currentUser, refreshWorkspace } = useRentFlow();
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -43,6 +43,7 @@ export function OrganizationSetupPage() {
       toast.error(error.message);
       return;
     }
+    await refreshWorkspace();
     toast.success('Workspace created. Your 14-day Starter trial has begun.');
     navigate('/apps', { replace: true });
   };

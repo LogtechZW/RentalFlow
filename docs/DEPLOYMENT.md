@@ -2,9 +2,9 @@
 
 ## What is ready now
 
-The web application has protected client routes, role-aware sessions in demo mode, standard Vite production builds, error reporting support via Sentry, and a Supabase migration that creates organisation-scoped data with row-level security (RLS).
+The web application has protected client routes, Supabase-backed sessions, organisation onboarding, standard Vite production builds, error reporting support via Sentry, and organisation-scoped data with row-level security (RLS). Configured deployments persist an organisation workspace snapshot in Supabase, so authorised team members share the same data; demo mode remains device-local.
 
-The supplied UI remains a demo data client until the Supabase data adapter is connected. Do **not** publish it as a financial system with `VITE_DEMO_MODE=true`: browser storage and mock sign-in are not security controls.
+Do **not** publish it as a financial system with `VITE_DEMO_MODE=true`: browser storage and mock sign-in are not security controls.
 
 ## Recommended stack
 
@@ -22,7 +22,7 @@ The supplied UI remains a demo data client until the Supabase data adapter is co
 1. Create a Supabase project and run `supabase/migrations/20261018_multitenant_foundation.sql` in the SQL editor or through the Supabase CLI.
 2. Enable email verification and MFA for administrators. Never expose a Supabase service-role key in the frontend.
 3. Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SENTRY_DSN`, and `VITE_DEMO_MODE=false` in the hosting provider.
-4. Replace the demo context persistence with repository functions that read/write the organisation-scoped tables. Every request must include the selected organisation and is still enforced by RLS.
+4. Apply the migration, then verify two users in the same organisation can create and see a shared property record. The workspace snapshot is RLS-protected; as the product grows, migrate high-volume records to the supplied normalised tables without weakening RLS.
 5. Add payment webhooks in a server-side function. Verify webhook signatures, make events idempotent, and update invoices only after verified provider events.
 6. Run `npm run build`, perform an accessibility pass (keyboard navigation, visible focus, contrast, mobile), and configure a custom domain, HTTPS, backups, and retention policy.
 

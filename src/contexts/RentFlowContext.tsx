@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type {
   UserRole,
@@ -51,9 +51,11 @@ import { hasSupabaseConfiguration, supabase } from '@/lib/supabase';
 
 interface RentFlowContextType {
   currentUser: SystemUser | null;
+  organizationId: string | null;
   activeRole: UserRole;
   isAuthenticated: boolean;
   authLoading: boolean;
+  workspaceLoading: boolean;
   rbzExchangeRate: number;
   corporateLogo: string;
   isMonthEndActive: boolean;
@@ -83,6 +85,7 @@ interface RentFlowContextType {
   signIn: (email: string, password?: string) => Promise<boolean>;
   signUp: (name: string, email: string, password: string, role: UserRole) => Promise<boolean>;
   signOut: () => Promise<void>;
+  refreshWorkspace: () => Promise<void>;
   setActiveRole: (role: UserRole) => void;
   setRbzExchangeRate: (rate: number) => void;
   setCorporateLogo: (logo: string) => void;
@@ -179,11 +182,26 @@ function loadStored<T>(key: string, fallback: T): T {
   return fallback;
 }
 
+function loadWorkspaceData<T>(key: string, fallback: T): T {
+  return isDemoMode ? loadStored(key, fallback) : fallback;
+}
+
+type WorkspaceSnapshot = Pick<RentFlowContextType,
+  'portfolios' | 'properties' | 'spaces' | 'tenants' | 'leases' | 'invoices' |
+  'payments' | 'spaceLedgers' | 'generatorLogs' | 'solarLogs' | 'boreholeLogs' |
+  'meterReadings' | 'turnoverDeclarations' | 'maintenanceTickets' | 'documents' |
+  'customWorkflows' | 'whatsappRules' | 'whatsappLogs' | 'rbzExchangeRate' |
+  'corporateLogo' | 'moduleThumbnails'
+>;
+
 export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<SystemUser | null>(() => isDemoMode ? loadStored<SystemUser | null>('rf_session_user', null) : null);
   const [activeRole, setActiveRoleState] = useState<UserRole>(() => isDemoMode ? loadStored<UserRole>('rf_session_role', 'Property Manager') : 'Property Manager');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isDemoMode && Boolean(loadStored<SystemUser | null>('rf_session_user', null)));
   const [authLoading, setAuthLoading] = useState(() => !isDemoMode && supabase !== null);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(() => !isDemoMode && supabase !== null);
+  const workspaceHydratedRef = useRef(isDemoMode);
   const [rbzExchangeRate, setRbzExchangeRateState] = useState<number>(() => loadStored('rf_rbz_rate_v1', DEFAULT_RBZ_RATE));
   const [corporateLogo, setCorporateLogoState] = useState<string>(() => loadStored('rf_logo_v1', RENTFLOW_LOGO_URL));
 
@@ -205,55 +223,56 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Core Collections with Permanent LocalStorage Persistence (un-versioned keys, never overwritten across updates)
   const [portfolios, setPortfolios] = useState<PropertyPortfolio[]>(() => {
-    const loaded = loadStored<PropertyPortfolio[]>('rf_portfolios_data', INITIAL_PORTFOLIOS);
+    const loaded = loadWorkspaceData<PropertyPortfolio[]>('rf_portfolios_data', INITIAL_PORTFOLIOS);
     return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_PORTFOLIOS;
   });
   const [properties, setProperties] = useState<Property[]>(() => {
-    const loaded = loadStored<Property[]>('rf_properties_data', INITIAL_PROPERTIES);
+    const loaded = loadWorkspaceData<Property[]>('rf_properties_data', INITIAL_PROPERTIES);
     return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_PROPERTIES;
   });
   const [spaces, setSpaces] = useState<Space[]>(() => {
-    const loaded = loadStored<Space[]>('rf_spaces_data', INITIAL_SPACES);
+    const loaded = loadWorkspaceData<Space[]>('rf_spaces_data', INITIAL_SPACES);
     return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_SPACES;
   });
   const [tenants, setTenants] = useState<Tenant[]>(() => {
-    const loaded = loadStored<Tenant[]>('rf_tenants_data', INITIAL_TENANTS);
+    const loaded = loadWorkspaceData<Tenant[]>('rf_tenants_data', INITIAL_TENANTS);
     return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_TENANTS;
   });
-  const [leases, setLeases] = useState<Lease[]>(() => loadStored('rf_leases_data', []));
-  const [invoices, setInvoices] = useState<Invoice[]>(() => loadStored('rf_invoices_data', []));
-  const [payments, setPayments] = useState<Payment[]>(() => loadStored('rf_payments_data', []));
-  const [spaceLedgers, setSpaceLedgers] = useState<Record<string, SpaceLedgerEntry[]>>(() => loadStored('rf_space_ledgers_data', {}));
-  const [generatorLogs, setGeneratorLogs] = useState<GeneratorLog[]>(() => loadStored('rf_gen_logs_data', []));
-  const [solarLogs, setSolarLogs] = useState<SolarLog[]>(() => loadStored('rf_solar_logs_data', []));
-  const [boreholeLogs, setBoreholeLogs] = useState<BoreholeLog[]>(() => loadStored('rf_borehole_logs_data', []));
-  const [meterReadings, setMeterReadings] = useState<UtilityMeterReading[]>(() => loadStored('rf_meter_readings_data', INITIAL_METER_READINGS));
-  const [turnoverDeclarations, setTurnoverDeclarations] = useState<TurnoverSalesDeclaration[]>(() => loadStored('rf_turnover_data', []));
-  const [maintenanceTickets, setMaintenanceTickets] = useState<MaintenanceTicket[]>(() => loadStored('rf_tickets_data', []));
-  const [documents, setDocuments] = useState<DocumentItem[]>(() => loadStored('rf_documents_data', []));
-  const [customWorkflows, setCustomWorkflows] = useState<CustomWorkflowGrouping[]>(() => loadStored('rf_workflows_data', INITIAL_CUSTOM_WORKFLOWS));
-  const [whatsappRules, setWhatsappRules] = useState<WhatsAppReminderRule[]>(() => loadStored('rf_whatsapp_rules_data', INITIAL_WHATSAPP_RULES));
-  const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLog[]>(() => loadStored('rf_whatsapp_logs_data', []));
+  const [leases, setLeases] = useState<Lease[]>(() => loadWorkspaceData('rf_leases_data', []));
+  const [invoices, setInvoices] = useState<Invoice[]>(() => loadWorkspaceData('rf_invoices_data', []));
+  const [payments, setPayments] = useState<Payment[]>(() => loadWorkspaceData('rf_payments_data', []));
+  const [spaceLedgers, setSpaceLedgers] = useState<Record<string, SpaceLedgerEntry[]>>(() => loadWorkspaceData('rf_space_ledgers_data', {}));
+  const [generatorLogs, setGeneratorLogs] = useState<GeneratorLog[]>(() => loadWorkspaceData('rf_gen_logs_data', []));
+  const [solarLogs, setSolarLogs] = useState<SolarLog[]>(() => loadWorkspaceData('rf_solar_logs_data', []));
+  const [boreholeLogs, setBoreholeLogs] = useState<BoreholeLog[]>(() => loadWorkspaceData('rf_borehole_logs_data', []));
+  const [meterReadings, setMeterReadings] = useState<UtilityMeterReading[]>(() => loadWorkspaceData('rf_meter_readings_data', INITIAL_METER_READINGS));
+  const [turnoverDeclarations, setTurnoverDeclarations] = useState<TurnoverSalesDeclaration[]>(() => loadWorkspaceData('rf_turnover_data', []));
+  const [maintenanceTickets, setMaintenanceTickets] = useState<MaintenanceTicket[]>(() => loadWorkspaceData('rf_tickets_data', []));
+  const [documents, setDocuments] = useState<DocumentItem[]>(() => loadWorkspaceData('rf_documents_data', []));
+  const [customWorkflows, setCustomWorkflows] = useState<CustomWorkflowGrouping[]>(() => loadWorkspaceData('rf_workflows_data', INITIAL_CUSTOM_WORKFLOWS));
+  const [whatsappRules, setWhatsappRules] = useState<WhatsAppReminderRule[]>(() => loadWorkspaceData('rf_whatsapp_rules_data', INITIAL_WHATSAPP_RULES));
+  const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLog[]>(() => loadWorkspaceData('rf_whatsapp_logs_data', INITIAL_WHATSAPP_LOGS));
 
-  // Sync state changes to LocalStorage under permanent un-versioned keys
-  useEffect(() => { localStorage.setItem('rf_spaces_data', JSON.stringify(spaces)); }, [spaces]);
-  useEffect(() => { localStorage.setItem('rf_properties_data', JSON.stringify(properties)); }, [properties]);
-  useEffect(() => { localStorage.setItem('rf_portfolios_data', JSON.stringify(portfolios)); }, [portfolios]);
-  useEffect(() => { localStorage.setItem('rf_tenants_data', JSON.stringify(tenants)); }, [tenants]);
-  useEffect(() => { localStorage.setItem('rf_leases_data', JSON.stringify(leases)); }, [leases]);
-  useEffect(() => { localStorage.setItem('rf_invoices_data', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { localStorage.setItem('rf_payments_data', JSON.stringify(payments)); }, [payments]);
-  useEffect(() => { localStorage.setItem('rf_space_ledgers_data', JSON.stringify(spaceLedgers)); }, [spaceLedgers]);
-  useEffect(() => { localStorage.setItem('rf_gen_logs_data', JSON.stringify(generatorLogs)); }, [generatorLogs]);
-  useEffect(() => { localStorage.setItem('rf_solar_logs_data', JSON.stringify(solarLogs)); }, [solarLogs]);
-  useEffect(() => { localStorage.setItem('rf_borehole_logs_data', JSON.stringify(boreholeLogs)); }, [boreholeLogs]);
-  useEffect(() => { localStorage.setItem('rf_meter_readings_data', JSON.stringify(meterReadings)); }, [meterReadings]);
-  useEffect(() => { localStorage.setItem('rf_turnover_data', JSON.stringify(turnoverDeclarations)); }, [turnoverDeclarations]);
-  useEffect(() => { localStorage.setItem('rf_tickets_data', JSON.stringify(maintenanceTickets)); }, [maintenanceTickets]);
-  useEffect(() => { localStorage.setItem('rf_documents_data', JSON.stringify(documents)); }, [documents]);
-  useEffect(() => { localStorage.setItem('rf_workflows_data', JSON.stringify(customWorkflows)); }, [customWorkflows]);
-  useEffect(() => { localStorage.setItem('rf_module_thumbnails_data', JSON.stringify(moduleThumbnails)); }, [moduleThumbnails]);
-  useEffect(() => { localStorage.setItem('rf_rbz_rate_data', JSON.stringify(rbzExchangeRate)); }, [rbzExchangeRate]);
+  // Demo data remains device-local. Configured deployments persist the same
+  // workspace payload for every organisation member through Supabase + RLS.
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_spaces_data', JSON.stringify(spaces)); }, [spaces]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_properties_data', JSON.stringify(properties)); }, [properties]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_portfolios_data', JSON.stringify(portfolios)); }, [portfolios]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_tenants_data', JSON.stringify(tenants)); }, [tenants]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_leases_data', JSON.stringify(leases)); }, [leases]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_invoices_data', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_payments_data', JSON.stringify(payments)); }, [payments]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_space_ledgers_data', JSON.stringify(spaceLedgers)); }, [spaceLedgers]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_gen_logs_data', JSON.stringify(generatorLogs)); }, [generatorLogs]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_solar_logs_data', JSON.stringify(solarLogs)); }, [solarLogs]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_borehole_logs_data', JSON.stringify(boreholeLogs)); }, [boreholeLogs]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_meter_readings_data', JSON.stringify(meterReadings)); }, [meterReadings]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_turnover_data', JSON.stringify(turnoverDeclarations)); }, [turnoverDeclarations]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_tickets_data', JSON.stringify(maintenanceTickets)); }, [maintenanceTickets]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_documents_data', JSON.stringify(documents)); }, [documents]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_workflows_data', JSON.stringify(customWorkflows)); }, [customWorkflows]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_module_thumbnails_data', JSON.stringify(moduleThumbnails)); }, [moduleThumbnails]);
+  useEffect(() => { if (isDemoMode) localStorage.setItem('rf_rbz_rate_data', JSON.stringify(rbzExchangeRate)); }, [rbzExchangeRate]);
   useEffect(() => {
     if (isDemoMode && currentUser && isAuthenticated) {
       localStorage.setItem('rf_session_user', JSON.stringify(currentUser));
@@ -271,6 +290,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       if (!user) {
         setCurrentUser(null);
         setIsAuthenticated(false);
+        setWorkspaceLoading(false);
         return;
       }
       const allowedRoles: UserRole[] = ['Property Owner', 'Property Manager', 'Accountant', 'Tenant', 'Administrator'];
@@ -282,6 +302,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setCurrentUser({ id: user.id, name, email: user.email || '', role, availableRoles: [role] });
       setActiveRoleState(role);
       setIsAuthenticated(true);
+      setWorkspaceLoading(true);
     };
 
     void supabase.auth.getSession().then(({ data }) => applySession(data.session?.user ?? null)).finally(() => setAuthLoading(false));
@@ -291,6 +312,104 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  const refreshWorkspace = useCallback(async () => {
+    if (isDemoMode || !supabase || !currentUser) {
+      setOrganizationId(null);
+      setWorkspaceLoading(false);
+      return;
+    }
+
+    setWorkspaceLoading(true);
+    const { data, error } = await supabase
+      .from('organization_memberships')
+      .select('organization_id, role')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      setOrganizationId(null);
+      setWorkspaceLoading(false);
+      return;
+    }
+
+    const roleMap: Record<string, UserRole> = {
+      administrator: 'Administrator',
+      property_manager: 'Property Manager',
+      accountant: 'Accountant',
+      property_owner: 'Property Owner',
+      tenant: 'Tenant',
+    };
+    const role = roleMap[data.role] ?? 'Property Manager';
+    setCurrentUser(previous => previous ? { ...previous, role, availableRoles: [role] } : previous);
+    setActiveRoleState(role);
+    workspaceHydratedRef.current = false;
+    setOrganizationId(data.organization_id);
+  }, [currentUser?.id]);
+
+  useEffect(() => { void refreshWorkspace(); }, [refreshWorkspace]);
+
+  const applyWorkspaceSnapshot = useCallback((snapshot: Partial<WorkspaceSnapshot>) => {
+    if (Array.isArray(snapshot.portfolios)) setPortfolios(snapshot.portfolios);
+    if (Array.isArray(snapshot.properties)) setProperties(snapshot.properties);
+    if (Array.isArray(snapshot.spaces)) setSpaces(snapshot.spaces);
+    if (Array.isArray(snapshot.tenants)) setTenants(snapshot.tenants);
+    if (Array.isArray(snapshot.leases)) setLeases(snapshot.leases);
+    if (Array.isArray(snapshot.invoices)) setInvoices(snapshot.invoices);
+    if (Array.isArray(snapshot.payments)) setPayments(snapshot.payments);
+    if (snapshot.spaceLedgers && typeof snapshot.spaceLedgers === 'object') setSpaceLedgers(snapshot.spaceLedgers);
+    if (Array.isArray(snapshot.generatorLogs)) setGeneratorLogs(snapshot.generatorLogs);
+    if (Array.isArray(snapshot.solarLogs)) setSolarLogs(snapshot.solarLogs);
+    if (Array.isArray(snapshot.boreholeLogs)) setBoreholeLogs(snapshot.boreholeLogs);
+    if (Array.isArray(snapshot.meterReadings)) setMeterReadings(snapshot.meterReadings);
+    if (Array.isArray(snapshot.turnoverDeclarations)) setTurnoverDeclarations(snapshot.turnoverDeclarations);
+    if (Array.isArray(snapshot.maintenanceTickets)) setMaintenanceTickets(snapshot.maintenanceTickets);
+    if (Array.isArray(snapshot.documents)) setDocuments(snapshot.documents);
+    if (Array.isArray(snapshot.customWorkflows)) setCustomWorkflows(snapshot.customWorkflows);
+    if (Array.isArray(snapshot.whatsappRules)) setWhatsappRules(snapshot.whatsappRules);
+    if (Array.isArray(snapshot.whatsappLogs)) setWhatsappLogs(snapshot.whatsappLogs);
+    if (typeof snapshot.rbzExchangeRate === 'number') setRbzExchangeRateState(snapshot.rbzExchangeRate);
+    if (typeof snapshot.corporateLogo === 'string') setCorporateLogoState(snapshot.corporateLogo);
+    if (snapshot.moduleThumbnails && typeof snapshot.moduleThumbnails === 'object') setModuleThumbnails(snapshot.moduleThumbnails);
+  }, []);
+
+  useEffect(() => {
+    if (isDemoMode || !supabase || !organizationId) return;
+    let active = true;
+    setWorkspaceLoading(true);
+    void supabase
+      .from('workspace_snapshots')
+      .select('content')
+      .eq('organization_id', organizationId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) toast.error(`Unable to load workspace: ${error.message}`);
+        if (data?.content && typeof data.content === 'object') applyWorkspaceSnapshot(data.content as Partial<WorkspaceSnapshot>);
+        workspaceHydratedRef.current = true;
+        setWorkspaceLoading(false);
+      });
+    return () => { active = false; };
+  }, [applyWorkspaceSnapshot, organizationId]);
+
+  useEffect(() => {
+    if (isDemoMode || !supabase || !organizationId || !workspaceHydratedRef.current) return;
+    const snapshot: WorkspaceSnapshot = {
+      portfolios, properties, spaces, tenants, leases, invoices, payments, spaceLedgers,
+      generatorLogs, solarLogs, boreholeLogs, meterReadings, turnoverDeclarations,
+      maintenanceTickets, documents, customWorkflows, whatsappRules, whatsappLogs,
+      rbzExchangeRate, corporateLogo, moduleThumbnails,
+    };
+    const timeout = window.setTimeout(() => {
+      void supabase.from('workspace_snapshots').upsert(
+        { organization_id: organizationId, content: snapshot },
+        { onConflict: 'organization_id' },
+      ).then(({ error }) => { if (error) toast.error(`Unable to save workspace: ${error.message}`); });
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [organizationId, workspaceLoading, portfolios, properties, spaces, tenants, leases, invoices, payments, spaceLedgers, generatorLogs, solarLogs, boreholeLogs, meterReadings, turnoverDeclarations, maintenanceTickets, documents, customWorkflows, whatsappRules, whatsappLogs, rbzExchangeRate, corporateLogo, moduleThumbnails]);
 
   // Authentication
   const signIn = async (email: string, password?: string) => {
@@ -1077,9 +1196,11 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     <RentFlowContext.Provider
       value={{
         currentUser,
+        organizationId,
         activeRole,
         isAuthenticated,
         authLoading,
+        workspaceLoading,
         rbzExchangeRate,
         corporateLogo,
         isMonthEndActive,
@@ -1107,6 +1228,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         signIn,
         signUp,
         signOut,
+        refreshWorkspace,
         setActiveRole,
         setRbzExchangeRate,
         setCorporateLogo,

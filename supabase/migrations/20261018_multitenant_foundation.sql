@@ -57,6 +57,16 @@ create table public.subscriptions (
   updated_at timestamptz not null default now()
 );
 
+-- The UI domain model is intentionally kept in one versioned JSON document while
+-- RentalFlow transitions its legacy modules to normalized tables. This gives all
+-- authorised organisation members one consistent workspace immediately, without
+-- exposing another organisation's data through browser-local storage.
+create table public.workspace_snapshots (
+  organization_id uuid primary key references public.organizations(id) on delete cascade,
+  content jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
 create table public.portfolios (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -236,6 +246,7 @@ alter table public.organizations enable row level security;
 alter table public.profiles enable row level security;
 alter table public.organization_memberships enable row level security;
 alter table public.subscriptions enable row level security;
+alter table public.workspace_snapshots enable row level security;
 alter table public.portfolios enable row level security;
 alter table public.properties enable row level security;
 alter table public.spaces enable row level security;
@@ -259,6 +270,8 @@ create policy "creator becomes first administrator" on public.organization_membe
 );
 create policy "managers manage memberships" on public.organization_memberships for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id));
 create policy "members read subscriptions" on public.subscriptions for select using (public.is_org_member(organization_id));
+create policy "members read workspace snapshots" on public.workspace_snapshots for select using (public.is_org_member(organization_id));
+create policy "managers mutate workspace snapshots" on public.workspace_snapshots for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id));
 
 do $$
 declare tab text;
@@ -272,6 +285,7 @@ end $$;
 create trigger organizations_updated_at before update on public.organizations for each row execute function public.set_updated_at();
 create trigger profiles_updated_at before update on public.profiles for each row execute function public.set_updated_at();
 create trigger subscriptions_updated_at before update on public.subscriptions for each row execute function public.set_updated_at();
+create trigger workspace_snapshots_updated_at before update on public.workspace_snapshots for each row execute function public.set_updated_at();
 create trigger portfolios_updated_at before update on public.portfolios for each row execute function public.set_updated_at();
 create trigger properties_updated_at before update on public.properties for each row execute function public.set_updated_at();
 create trigger spaces_updated_at before update on public.spaces for each row execute function public.set_updated_at();
