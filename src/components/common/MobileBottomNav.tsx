@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   Building2,
   FileText,
   CreditCard,
   Menu,
-  DollarSign,
   TrendingUp,
   Wrench,
   Zap,

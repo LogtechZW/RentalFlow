@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRentFlow } from '@/contexts/RentFlowContext';
-import { AlertCircle, MessageSquare, Send, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, MessageSquare, Send, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -13,10 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
-export const OverdueAlertBanner: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
-  const { spaces, tenants, properties, rbzExchangeRate, sendWhatsAppNotice } = useRentFlow();
+export const OverdueAlertBanner: React.FC = () => {
+  const { spaces, tenants, rbzExchangeRate, sendWhatsAppNotice } = useRentFlow();
   const [isDispatcherOpen, setIsDispatcherOpen] = useState<boolean>(false);
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('');
   const [messageTone, setMessageTone] = useState<'Formal' | 'Urgent' | 'Polite' | 'Final Notice'>('Urgent');
 
   // Find overdue spaces and tenants

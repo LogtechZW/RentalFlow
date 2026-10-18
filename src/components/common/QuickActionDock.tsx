@@ -19,8 +19,7 @@ import {
   Wrench,
   Fuel,
   ChevronDown,
-  ChevronUp,
-  PlusCircle
+  ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 
