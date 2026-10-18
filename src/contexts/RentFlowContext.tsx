@@ -321,6 +321,10 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     setWorkspaceLoading(true);
+    const { error: invitationError } = await supabase.rpc('accept_pending_organization_invitations');
+    if (invitationError) {
+      toast.error(`Unable to process workspace invitations: ${invitationError.message}`);
+    }
     const { data, error } = await supabase
       .from('organization_memberships')
       .select('organization_id, role')

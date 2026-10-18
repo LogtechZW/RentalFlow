@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RENTFLOW_LOGO_URL } from '@/services/mockData';
+import { supabase } from '@/lib/supabase';
 
 export const SettingsPage: React.FC = () => {
   const {
@@ -56,6 +57,7 @@ export const SettingsPage: React.FC = () => {
     setRbzExchangeRate,
     activeRole,
     currentUser,
+    organizationId,
     setActiveRole,
     cleanSlateReset,
     bulkDeleteProperties,
@@ -82,6 +84,9 @@ export const SettingsPage: React.FC = () => {
   const [exchangeRateInput, setExchangeRateInput] = useState<string>(rbzExchangeRate.toString());
   const [primaryCurrency, setPrimaryCurrency] = useState<'USD' | 'ZiG'>('USD');
   const [secondaryCurrency, setSecondaryCurrency] = useState<'ZiG' | 'USD'>('ZiG');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'Property Manager' | 'Accountant' | 'Property Owner'>('Property Manager');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   // Automated WhatsApp Rent Statement Scheduler states
   const [schedulerEnabled, setSchedulerEnabled] = useState<boolean>(true);
@@ -134,6 +139,36 @@ export const SettingsPage: React.FC = () => {
     }
     setRbzExchangeRate(rate);
     toast.success(`RBZ Interbank exchange rate updated to 1 USD = ${rate.toFixed(2)} ZiG across all modules!`);
+  };
+
+  const canManageTeam = currentUser?.availableRoles.some(role =>
+    role === 'Administrator' || role === 'Property Manager' || role === 'Property Owner'
+  ) ?? false;
+
+  const handleInvite = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!supabase || !organizationId) {
+      toast.error('Team invitations are available after a secure workspace is configured.');
+      return;
+    }
+    const roleMap = {
+      'Property Manager': 'property_manager',
+      'Accountant': 'accountant',
+      'Property Owner': 'property_owner',
+    } as const;
+    setIsSendingInvite(true);
+    const { error } = await supabase.rpc('create_organization_invitation', {
+      target_organization_id: organizationId,
+      invitee_email: inviteEmail,
+      invited_role: roleMap[inviteRole],
+    });
+    setIsSendingInvite(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setInviteEmail('');
+    toast.success('Invitation created. Ask the colleague to register or sign in with this email address.');
   };
 
   const handleSaveScheduler = (e: React.FormEvent) => {
@@ -443,6 +478,44 @@ export const SettingsPage: React.FC = () => {
             </form>
           </CardContent>
         </Card>
+
+        {canManageTeam && (
+          <Card className="border border-border/80 shadow-xs">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-serif font-bold flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                <span>Workspace Team</span>
+              </CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Invite staff by email. Access is granted only after they sign in with the invited address and is enforced by workspace roles.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs">
+              <form onSubmit={handleInvite} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="invite-email" className="text-xs font-medium">Staff email address</Label>
+                  <Input id="invite-email" type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="colleague@example.com" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Workspace role</Label>
+                  <Select value={inviteRole} onValueChange={(value) => setInviteRole(value as typeof inviteRole)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Property Manager">Property Manager</SelectItem>
+                      <SelectItem value="Accountant">Accountant</SelectItem>
+                      <SelectItem value="Property Owner">Property Owner</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" size="sm" className="w-full" disabled={isSendingInvite || !supabase || !organizationId}>
+                  <Send className="mr-1.5 h-3.5 w-3.5" />
+                  {isSendingInvite ? 'Creating invitation…' : 'Invite staff member'}
+                </Button>
+              </form>
+              {!supabase || !organizationId ? <p className="rounded-md bg-muted p-3 text-[11px] text-muted-foreground">Secure team invitations become available after Supabase workspace setup.</p> : null}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Section 4: Role-Based Access Control (RBAC) */}
         <Card className="border border-border/80 shadow-xs">

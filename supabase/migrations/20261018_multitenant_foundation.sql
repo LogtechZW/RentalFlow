@@ -42,6 +42,21 @@ create table public.organization_memberships (
   primary key (organization_id, user_id)
 );
 
+create table public.organization_invitations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  email text not null check (position('@' in email) > 1),
+  role public.rentflow_role not null check (role <> 'tenant'),
+  invited_by uuid not null references public.profiles(id) on delete restrict,
+  expires_at timestamptz not null default now() + interval '7 days',
+  accepted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create unique index organization_invitations_pending_email_idx
+  on public.organization_invitations (organization_id, lower(email))
+  where accepted_at is null;
+
 create table public.subscriptions (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null unique references public.organizations(id) on delete cascade,
@@ -241,10 +256,67 @@ end; $$;
 revoke all on function public.create_organization_with_admin(text, text, text) from public;
 grant execute on function public.create_organization_with_admin(text, text, text) to authenticated;
 
+create or replace function public.create_organization_invitation(
+  target_organization_id uuid,
+  invitee_email text,
+  invited_role public.rentflow_role
+)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare invitation_uuid uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if not public.is_org_manager(target_organization_id) then raise exception 'Staff management permission required'; end if;
+  if invited_role = 'tenant' then raise exception 'Tenant invitations require the tenant portal workflow'; end if;
+  if position('@' in trim(invitee_email)) <= 1 then raise exception 'A valid email address is required'; end if;
+
+  insert into public.organization_invitations (organization_id, email, role, invited_by)
+  values (target_organization_id, lower(trim(invitee_email)), invited_role, auth.uid())
+  on conflict (organization_id, lower(email)) where accepted_at is null
+  do update set role = excluded.role, invited_by = excluded.invited_by, expires_at = now() + interval '7 days', created_at = now()
+  returning id into invitation_uuid;
+
+  return invitation_uuid;
+end; $$;
+
+revoke all on function public.create_organization_invitation(uuid, text, public.rentflow_role) from public;
+grant execute on function public.create_organization_invitation(uuid, text, public.rentflow_role) to authenticated;
+
+create or replace function public.accept_pending_organization_invitations()
+returns integer language plpgsql security definer set search_path = public as $$
+declare accepted_count integer;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+
+  with pending as (
+    select id, organization_id, role
+    from public.organization_invitations
+    where accepted_at is null
+      and expires_at > now()
+      and lower(email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  ), memberships as (
+    insert into public.organization_memberships (organization_id, user_id, role)
+    select organization_id, auth.uid(), role from pending
+    on conflict (organization_id, user_id) do nothing
+    returning organization_id
+  ), marked as (
+    update public.organization_invitations invitation
+    set accepted_at = now()
+    where invitation.id in (select id from pending)
+    returning invitation.id
+  )
+  select count(*) into accepted_count from marked;
+
+  return accepted_count;
+end; $$;
+
+revoke all on function public.accept_pending_organization_invitations() from public;
+grant execute on function public.accept_pending_organization_invitations() to authenticated;
+
 -- Owner bootstrap: the authenticated user may create an organisation, then add themselves as administrator.
 alter table public.organizations enable row level security;
 alter table public.profiles enable row level security;
 alter table public.organization_memberships enable row level security;
+alter table public.organization_invitations enable row level security;
 alter table public.subscriptions enable row level security;
 alter table public.workspace_snapshots enable row level security;
 alter table public.portfolios enable row level security;
@@ -269,6 +341,7 @@ create policy "creator becomes first administrator" on public.organization_membe
   )
 );
 create policy "managers manage memberships" on public.organization_memberships for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id));
+create policy "staff read organization invitations" on public.organization_invitations for select using (public.is_org_manager(organization_id));
 create policy "staff read subscriptions" on public.subscriptions for select using (public.is_org_manager(organization_id));
 create policy "staff read workspace snapshots" on public.workspace_snapshots for select using (public.is_org_manager(organization_id));
 create policy "managers mutate workspace snapshots" on public.workspace_snapshots for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id));
