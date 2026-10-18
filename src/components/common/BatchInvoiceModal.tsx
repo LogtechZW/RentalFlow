@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileText, Printer, Download, CheckCircle2 } from 'lucide-react';
+import { FileText, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface BatchInvoiceModalProps {
@@ -35,7 +35,6 @@ export const BatchInvoiceModal: React.FC<BatchInvoiceModalProps> = ({
   const [endDate, setEndDate] = useState<string>('2026-10-31');
   const [propertyFilter, setPropertyFilter] = useState<string>('all');
   const [isExporting, setIsExporting] = useState<boolean>(false);
-  const [previewActive, setPreviewActive] = useState<boolean>(false);
 
   const matchingInvoices = invoices.filter((inv) => {
     if (propertyFilter !== 'all' && inv.propertyId !== propertyFilter) return false;

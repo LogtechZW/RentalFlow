@@ -20,7 +20,6 @@ import {
   Plus,
   Trash2,
   Calendar,
-  AlertCircle,
   ExternalLink,
   Sparkles,
   Layers

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useRentFlow } from '@/contexts/RentFlowContext';
-import type { Space, Tenant } from '@/types/rentflow';
+import type { Space } from '@/types/rentflow';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
-  Building, 
   User,
   UserPlus,
   CheckCircle2,
