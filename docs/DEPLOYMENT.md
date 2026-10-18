@@ -49,4 +49,4 @@ Offer a 14-day trial without card details. Charge an additional US$3 per staff s
 
 ## Single-user and multi-user modes
 
-For a solo landlord, create one organisation, assign the owner `administrator`, and hide invitations in the UI. The same schema supports a multi-user firm by adding memberships with role-specific access. The organisation boundary is the tenant boundary: users cannot read another firm's records because RLS evaluates membership on every database query.
+For a solo landlord, create one organisation and assign the owner `administrator`. The same schema supports a multi-user firm by adding staff memberships with role-specific access. Administrators, property owners, property managers and accountants can access the shared workspace; tenant memberships are intentionally denied the full management workspace until a separately scoped tenant portal is introduced. The organisation boundary is the tenant boundary: users cannot read another firm's records because RLS evaluates membership on every database query.

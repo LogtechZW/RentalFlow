@@ -55,6 +55,7 @@ export const SettingsPage: React.FC = () => {
     rbzExchangeRate,
     setRbzExchangeRate,
     activeRole,
+    currentUser,
     setActiveRole,
     cleanSlateReset,
     bulkDeleteProperties,
@@ -457,7 +458,7 @@ export const SettingsPage: React.FC = () => {
 
           <CardContent className="space-y-3 text-xs">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {rolesList.map(({ role, desc }) => {
+              {rolesList.filter(({ role }) => currentUser?.availableRoles.includes(role)).map(({ role, desc }) => {
                 const isActive = activeRole === role;
                 return (
                   <div
