@@ -43,7 +43,7 @@ Offer a 14-day trial without card details. Charge an additional US$3 per staff s
 1. Owner creates an account, verifies their email, then creates their first organisation in `/onboarding`.
 2. A short wizard collects country, operating currency, portfolio and first property.
 3. Owner imports spaces/tenants from a CSV or adds them manually.
-4. Owner invites a manager and accountant; roles are assigned in `organization_memberships`.
+4. An administrator, property owner or manager opens **Settings → Workspace Team**, enters a colleague’s email and selects their role. The colleague registers or signs in with that exact email; RentalFlow accepts the unexpired invitation automatically.
 5. Manager creates leases; accountant sets invoice templates and payment gateway.
 6. The dashboard prompts the owner to run a test invoice before going live.
 
