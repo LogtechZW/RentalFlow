@@ -54,6 +54,7 @@ interface SpaceRackGridProps {
   onVacate?: (space: Space) => void;
   onGenerateInvoice?: (space: Space) => void;
   onSendWhatsApp?: (space: Space) => void;
+  variant?: 'compact' | 'tablet';
 }
 
 export const SpaceRackGrid: React.FC<SpaceRackGridProps> = ({

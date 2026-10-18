@@ -663,7 +663,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const eligibleSpaces = spaces.filter(s => 
       s.status === 'Occupied' && 
       s.currentTenantId &&
-      !invoices.some(invoice => invoice.unitId === s.id && invoice.billingPeriod === billingPeriod && invoice.status !== 'Void') &&
+      !invoices.some(invoice => invoice.unitId === s.id && invoice.billingPeriod === billingPeriod) &&
       (propertyIds.length === 0 || propertyIds.includes(s.propertyId))
     );
 
