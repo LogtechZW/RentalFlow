@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useRentFlow } from '@/contexts/RentFlowContext';
+import type { UserRole } from '@/types/rentflow';
 import { Button } from '@/components/ui/button';
 import {
   SPLASH_DESKTOP_BG,
@@ -15,13 +16,14 @@ import {
   Building2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isDemoMode } from '@/lib/runtime';
 
 export const SplashPage: React.FC = () => {
   const navigate = useNavigate();
   const { signIn, setActiveRole, rbzExchangeRate } = useRentFlow();
 
-  const handleInstantDemo = (userEmail: string = 'farai.moyo@rentflow.co.zw', role: any = 'Property Manager') => {
-    signIn(userEmail);
+  const handleInstantDemo = async (userEmail: string = 'farai.moyo@rentflow.co.zw', role: UserRole = 'Property Manager') => {
+    if (!await signIn(userEmail)) return;
     setActiveRole(role);
     toast.success(`Welcome to RentFlowPro! Logged in as ${role}`);
     navigate('/apps');
@@ -97,7 +99,7 @@ export const SplashPage: React.FC = () => {
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Button>
 
-              <Button
+              {isDemoMode && <Button
                 variant="outline"
                 size="lg"
                 onClick={() => handleInstantDemo('farai.moyo@rentflow.co.zw', 'Property Manager')}
@@ -110,11 +112,11 @@ export const SplashPage: React.FC = () => {
                 <span className="text-[10px] uppercase font-mono tracking-wider bg-slate-700/80 px-2 py-0.5 rounded text-slate-300">
                   1-Click
                 </span>
-              </Button>
+              </Button>}
             </div>
 
             {/* Quick Role Credentials Switcher */}
-            <div className="pt-2 border-t border-slate-800/80 space-y-2">
+            {isDemoMode && <div className="pt-2 border-t border-slate-800/80 space-y-2">
               <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">
                 Quick Role Credentials:
               </span>
@@ -133,7 +135,7 @@ export const SplashPage: React.FC = () => {
                   </Button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* Register redirection */}
             <div className="pt-1 text-center text-xs text-slate-400 border-t border-slate-800/50">
@@ -169,7 +171,7 @@ export const SplashPage: React.FC = () => {
                 <ArrowRight className="w-4 h-4" />
               </Button>
 
-              <Button
+              {isDemoMode && <Button
                 variant="outline"
                 size="lg"
                 onClick={() => handleInstantDemo('farai.moyo@rentflow.co.zw', 'Property Manager')}
@@ -180,11 +182,11 @@ export const SplashPage: React.FC = () => {
                   Instant Demo Access
                 </span>
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              </Button>
+              </Button>}
             </div>
 
             {/* Quick Demo Roles */}
-            <div className="pt-2 border-t border-slate-800/70 space-y-1.5">
+            {isDemoMode && <div className="pt-2 border-t border-slate-800/70 space-y-1.5">
               <span className="text-[10px] font-semibold text-slate-400 block uppercase tracking-wider text-center">
                 Quick Role Demo:
               </span>
@@ -203,7 +205,7 @@ export const SplashPage: React.FC = () => {
                   </Button>
                 ))}
               </div>
-            </div>
+            </div>}
 
             <div className="text-center text-[11px] text-slate-400 pt-1">
               Need an account?{' '}

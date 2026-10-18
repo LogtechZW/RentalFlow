@@ -23,13 +23,13 @@ export const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [role, setRole] = useState<UserRole>('Property Manager');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !email) {
       toast.error('Please enter your full name and email.');
       return;
     }
-    if (!signUp(name, email, role)) return;
+    if (!await signUp(name, email, password, role)) return;
     toast.success('Account created! Please proceed to Sign In.');
     navigate('/signin');
   };

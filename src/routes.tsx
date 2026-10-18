@@ -21,6 +21,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { AboutPage } from './pages/AboutPage';
 import { WhatsAppDispatcherPage } from './pages/WhatsAppDispatcherPage';
 import { MeterReadingsPage } from './pages/MeterReadingsPage';
+import { OrganizationSetupPage } from './pages/OrganizationSetupPage';
 
 export interface RouteConfig {
   name: string;
@@ -65,6 +66,11 @@ export const routes: RouteConfig[] = [
     name: 'Apps Hub',
     path: '/apps',
     element: <AppsHubPage />,
+  },
+  {
+    name: 'Organization Setup',
+    path: '/onboarding',
+    element: <OrganizationSetupPage />,
   },
   {
     name: 'Dashboard',

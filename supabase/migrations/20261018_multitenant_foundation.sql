@@ -204,6 +204,33 @@ $$;
 revoke all on function public.is_org_manager(uuid) from public;
 grant execute on function public.is_org_manager(uuid) to authenticated;
 
+create or replace function public.create_organization_with_admin(
+  organization_name text,
+  organization_country_code text default 'ZW',
+  organization_currency_code text default 'USD'
+)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare organization_uuid uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if char_length(trim(organization_name)) < 2 then raise exception 'Organization name is required'; end if;
+
+  insert into public.organizations (name, country_code, currency_code, created_by)
+  values (trim(organization_name), organization_country_code, organization_currency_code, auth.uid())
+  returning id into organization_uuid;
+
+  insert into public.organization_memberships (organization_id, user_id, role)
+  values (organization_uuid, auth.uid(), 'administrator');
+
+  insert into public.subscriptions (organization_id, provider, plan_code, status, seats, trial_ends_at)
+  values (organization_uuid, 'manual', 'starter', 'trialing', 3, now() + interval '14 days');
+
+  return organization_uuid;
+end; $$;
+
+revoke all on function public.create_organization_with_admin(text, text, text) from public;
+grant execute on function public.create_organization_with_admin(text, text, text) to authenticated;
+
 -- Owner bootstrap: the authenticated user may create an organisation, then add themselves as administrator.
 alter table public.organizations enable row level security;
 alter table public.profiles enable row level security;

@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({ breadcrumbs = [], isAppsHub = fa
   };
 
   const handleSignOut = () => {
-    signOut();
+    void signOut();
     navigate('/');
   };
 

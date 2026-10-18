@@ -13,6 +13,7 @@ import {
 import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { isDemoMode } from '@/lib/runtime';
+import { hasSupabaseConfiguration } from '@/lib/supabase';
 
 export const SignInPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,21 +22,21 @@ export const SignInPage: React.FC = () => {
   const [email, setEmail] = useState<string>('farai.moyo@rentflow.co.zw');
   const [password, setPassword] = useState<string>('password123');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
       toast.error('Please enter a valid email address.');
       return;
     }
-    if (!signIn(email)) return;
+    if (!await signIn(email, password)) return;
     toast.success('Successfully authenticated!');
-    navigate('/apps');
+    navigate(hasSupabaseConfiguration ? '/onboarding' : '/apps');
   };
 
-  const handleQuickDemoLogin = (userEmail: string) => {
+  const handleQuickDemoLogin = async (userEmail: string) => {
     const user = INITIAL_USERS.find(u => u.email === userEmail);
     if (user) {
-      signIn(user.email);
+      if (!await signIn(user.email)) return;
       setActiveRole(user.role);
       toast.success(`Signed in as ${user.name} (${user.role})`);
       navigate('/apps');

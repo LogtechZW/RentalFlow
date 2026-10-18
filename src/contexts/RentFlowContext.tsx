@@ -47,11 +47,13 @@ import {
   SYSTEM_MODULES
 } from '@/services/mockData';
 import { isDemoMode } from '@/lib/runtime';
+import { hasSupabaseConfiguration, supabase } from '@/lib/supabase';
 
 interface RentFlowContextType {
   currentUser: SystemUser | null;
   activeRole: UserRole;
   isAuthenticated: boolean;
+  authLoading: boolean;
   rbzExchangeRate: number;
   corporateLogo: string;
   isMonthEndActive: boolean;
@@ -78,9 +80,9 @@ interface RentFlowContextType {
   whatsappLogs: WhatsAppLog[];
 
   // Actions
-  signIn: (email: string) => boolean;
-  signUp: (name: string, email: string, role: UserRole) => boolean;
-  signOut: () => void;
+  signIn: (email: string, password?: string) => Promise<boolean>;
+  signUp: (name: string, email: string, password: string, role: UserRole) => Promise<boolean>;
+  signOut: () => Promise<void>;
   setActiveRole: (role: UserRole) => void;
   setRbzExchangeRate: (rate: number) => void;
   setCorporateLogo: (logo: string) => void;
@@ -178,9 +180,10 @@ function loadStored<T>(key: string, fallback: T): T {
 }
 
 export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<SystemUser | null>(() => loadStored<SystemUser | null>('rf_session_user', null));
-  const [activeRole, setActiveRoleState] = useState<UserRole>(() => loadStored<UserRole>('rf_session_role', 'Property Manager'));
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(loadStored<SystemUser | null>('rf_session_user', null)));
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(() => isDemoMode ? loadStored<SystemUser | null>('rf_session_user', null) : null);
+  const [activeRole, setActiveRoleState] = useState<UserRole>(() => isDemoMode ? loadStored<UserRole>('rf_session_role', 'Property Manager') : 'Property Manager');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isDemoMode && Boolean(loadStored<SystemUser | null>('rf_session_user', null)));
+  const [authLoading, setAuthLoading] = useState(() => !isDemoMode && supabase !== null);
   const [rbzExchangeRate, setRbzExchangeRateState] = useState<number>(() => loadStored('rf_rbz_rate_v1', DEFAULT_RBZ_RATE));
   const [corporateLogo, setCorporateLogoState] = useState<string>(() => loadStored('rf_logo_v1', RENTFLOW_LOGO_URL));
 
@@ -252,14 +255,53 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => { localStorage.setItem('rf_module_thumbnails_data', JSON.stringify(moduleThumbnails)); }, [moduleThumbnails]);
   useEffect(() => { localStorage.setItem('rf_rbz_rate_data', JSON.stringify(rbzExchangeRate)); }, [rbzExchangeRate]);
   useEffect(() => {
-    if (currentUser && isAuthenticated) {
+    if (isDemoMode && currentUser && isAuthenticated) {
       localStorage.setItem('rf_session_user', JSON.stringify(currentUser));
       localStorage.setItem('rf_session_role', JSON.stringify(activeRole));
     }
   }, [currentUser, activeRole, isAuthenticated]);
 
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return;
+    }
+
+    const applySession = (user: { id: string; email?: string; user_metadata?: Record<string, unknown>; app_metadata?: Record<string, unknown> } | null) => {
+      if (!user) {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        return;
+      }
+      const allowedRoles: UserRole[] = ['Property Owner', 'Property Manager', 'Accountant', 'Tenant', 'Administrator'];
+      const requestedRole = user.app_metadata?.role;
+      const role = typeof requestedRole === 'string' && allowedRoles.includes(requestedRole as UserRole)
+        ? requestedRole as UserRole
+        : 'Property Manager';
+      const name = typeof user.user_metadata?.full_name === 'string' ? user.user_metadata.full_name : user.email?.split('@')[0] || 'RentFlow user';
+      setCurrentUser({ id: user.id, name, email: user.email || '', role, availableRoles: [role] });
+      setActiveRoleState(role);
+      setIsAuthenticated(true);
+    };
+
+    void supabase.auth.getSession().then(({ data }) => applySession(data.session?.user ?? null)).finally(() => setAuthLoading(false));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      applySession(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Authentication
-  const signIn = (email: string) => {
+  const signIn = async (email: string, password?: string) => {
+    if (hasSupabaseConfiguration && supabase) {
+      const { error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      return true;
+    }
     if (!isDemoMode) {
       toast.error('This deployment requires secure Supabase authentication. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
       return false;
@@ -277,7 +319,20 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
-  const signUp = (name: string, email: string, role: UserRole) => {
+  const signUp = async (name: string, email: string, password: string, role: UserRole) => {
+    if (hasSupabaseConfiguration && supabase) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: name } },
+      });
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      toast.success('Check your email to verify the account, then sign in.');
+      return true;
+    }
     if (!isDemoMode) {
       toast.error('Self-service registration is unavailable until secure authentication is configured.');
       return false;
@@ -295,7 +350,8 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return true;
   };
 
-  const signOut = () => {
+  const signOut = async () => {
+    if (supabase) await supabase.auth.signOut();
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem('rf_session_user');
@@ -1023,6 +1079,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         currentUser,
         activeRole,
         isAuthenticated,
+        authLoading,
         rbzExchangeRate,
         corporateLogo,
         isMonthEndActive,

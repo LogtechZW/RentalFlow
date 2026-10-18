@@ -26,8 +26,12 @@ function matchPublicRoute(path: string, patterns: string[]) {
 
 export function RouteGuard({ children }: RouteGuardProps) {
   const location = useLocation();
-  const { isAuthenticated } = useRentFlow();
+  const { isAuthenticated, authLoading } = useRentFlow();
   const isPublic = matchPublicRoute(location.pathname, PUBLIC_ROUTES);
+
+  if (authLoading && !isPublic) {
+    return <div className="flex min-h-screen items-center justify-center" aria-label="Loading secure session"><div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>;
+  }
 
   if (!isAuthenticated && !isPublic) {
     return <Navigate to="/signin" state={{ from: location.pathname }} replace />;
