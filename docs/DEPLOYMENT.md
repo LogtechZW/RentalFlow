@@ -22,6 +22,7 @@ Do **not** publish it as a financial system with `VITE_DEMO_MODE=true`: browser 
 1. Create a Supabase project and run `supabase/migrations/20261018_multitenant_foundation.sql` in the SQL editor or through the Supabase CLI.
 2. Enable email verification and MFA for administrators. Never expose a Supabase service-role key in the frontend.
 3. Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SENTRY_DSN`, and `VITE_DEMO_MODE=false` in the hosting provider.
+   Run `npm run preflight:production` in the same environment before publishing; it rejects missing Supabase credentials, placeholder values, and demo mode.
 4. Apply the migration, then verify two users in the same organisation can create and see a shared property record. The workspace snapshot is RLS-protected; as the product grows, migrate high-volume records to the supplied normalised tables without weakening RLS.
 5. Add payment webhooks in a server-side function. Verify webhook signatures, make events idempotent, and update invoices only after verified provider events.
 6. Run `npm run build`, perform an accessibility pass (keyboard navigation, visible focus, contrast, mobile), and configure a custom domain, HTTPS, backups, and retention policy.
