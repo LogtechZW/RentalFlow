@@ -412,6 +412,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deallocateTenantFromSpace = (spaceId: string) => {
+    const departingTenantId = spaces.find(s => s.id === spaceId)?.currentTenantId;
     setSpaces(prev => prev.map(s => {
       if (s.id === spaceId) {
         return {
@@ -425,6 +426,10 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       return s;
     }));
+    if (departingTenantId) {
+      setTenants(prev => prev.map(t => t.id === departingTenantId ? { ...t, status: 'Vacated' } : t));
+      setLeases(prev => prev.map(l => l.unitId === spaceId && l.status === 'Active' ? { ...l, status: 'Terminated' } : l));
+    }
   };
 
   // Portfolios
@@ -441,6 +446,10 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deletePortfolio = (id: string) => {
+    if (properties.some(property => property.portfolioId === id)) {
+      toast.error('Move or delete the linked properties before deleting this portfolio.');
+      return;
+    }
     setPortfolios(prev => prev.filter(p => p.id !== id));
   };
 
@@ -458,7 +467,21 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteProperty = (id: string) => {
+    const spaceIds = spaces.filter(space => space.propertyId === id).map(space => space.id);
+    const tenantIds = tenants.filter(tenant => tenant.propertyId === id).map(tenant => tenant.id);
     setProperties(prev => prev.filter(p => p.id !== id));
+    setSpaces(prev => prev.filter(space => space.propertyId !== id));
+    setTenants(prev => prev.filter(tenant => tenant.propertyId !== id));
+    setLeases(prev => prev.filter(lease => lease.propertyId !== id));
+    setInvoices(prev => prev.filter(invoice => invoice.propertyId !== id));
+    setPayments(prev => prev.filter(payment => payment.propertyId !== id));
+    setMeterReadings(prev => prev.filter(reading => reading.propertyId !== id));
+    setMaintenanceTickets(prev => prev.filter(ticket => ticket.propertyId !== id));
+    setGeneratorLogs(prev => prev.filter(log => log.propertyId !== id));
+    setSolarLogs(prev => prev.filter(log => log.propertyId !== id));
+    setBoreholeLogs(prev => prev.filter(log => log.propertyId !== id));
+    setTurnoverDeclarations(prev => prev.filter(declaration => !tenantIds.includes(declaration.tenantId)));
+    setSpaceLedgers(prev => Object.fromEntries(Object.entries(prev).filter(([spaceId]) => !spaceIds.includes(spaceId))));
   };
 
   // Spaces
@@ -475,7 +498,18 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteSpace = (id: string) => {
+    const hasLiveReferences = tenants.some(tenant => tenant.unitId === id && tenant.status !== 'Vacated') ||
+      leases.some(lease => lease.unitId === id && lease.status !== 'Terminated');
+    if (hasLiveReferences) {
+      toast.error('Deallocate the tenant and terminate the lease before deleting this space.');
+      return;
+    }
     setSpaces(prev => prev.filter(s => s.id !== id));
+    setSpaceLedgers(prev => {
+      const remaining = { ...prev };
+      delete remaining[id];
+      return remaining;
+    });
   };
 
   // Tenants
@@ -502,6 +536,19 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const deleteTenant = (id: string) => {
+    const hasFinancialHistory = invoices.some(invoice => invoice.tenantId === id) || payments.some(payment => payment.tenantId === id);
+    if (hasFinancialHistory) {
+      toast.error('This tenant has financial history and cannot be deleted. Mark the tenant as vacated instead.');
+      return;
+    }
+    setSpaces(prev => prev.map(space => space.currentTenantId === id ? {
+      ...space,
+      status: 'Vacant',
+      currentTenantId: undefined,
+      currentTenantName: undefined,
+      leaseId: undefined,
+    } : space));
+    setLeases(prev => prev.filter(lease => lease.tenantId !== id));
     setTenants(prev => prev.filter(t => t.id !== id));
   };
 
@@ -512,6 +559,13 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: `lease-${Date.now()}`,
     };
     setLeases(prev => [newLease, ...prev]);
+    setSpaces(prev => prev.map(space => space.id === lease.unitId ? {
+      ...space,
+      leaseId: newLease.id,
+      status: lease.status === 'Active' ? 'Occupied' : space.status,
+      currentTenantId: lease.tenantId,
+      currentTenantName: lease.tenantName,
+    } : space));
   };
 
   const updateLease = (id: string, updates: Partial<Lease>) => {
@@ -553,6 +607,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const eligibleSpaces = spaces.filter(s => 
       s.status === 'Occupied' && 
       s.currentTenantId &&
+      !invoices.some(invoice => invoice.unitId === s.id && invoice.billingPeriod === billingPeriod && invoice.status !== 'Void') &&
       (propertyIds.length === 0 || propertyIds.includes(s.propertyId))
     );
 
@@ -630,6 +685,32 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     if (newInvoices.length > 0) {
       setInvoices(prev => [...newInvoices, ...prev]);
+      setSpaces(prev => prev.map(space => {
+        const invoice = newInvoices.find(item => item.unitId === space.id);
+        return invoice ? { ...space, rentalAccumulationUSD: space.rentalAccumulationUSD + invoice.totalUSD } : space;
+      }));
+      setTenants(prev => prev.map(tenant => {
+        const invoice = newInvoices.find(item => item.tenantId === tenant.id);
+        return invoice ? { ...tenant, balanceUSD: tenant.balanceUSD + invoice.totalUSD, balanceZiG: (tenant.balanceUSD + invoice.totalUSD) * rbzExchangeRate } : tenant;
+      }));
+      setSpaceLedgers(prev => {
+        const next = { ...prev };
+        newInvoices.forEach(invoice => {
+          const entry: SpaceLedgerEntry = {
+            id: `ledger-${invoice.id}`,
+            spaceId: invoice.unitId,
+            date: invoice.issueDate,
+            description: `Invoice ${invoice.invoiceNumber} — ${invoice.billingPeriod}`,
+            chargeUSD: invoice.totalUSD,
+            paymentUSD: 0,
+            balanceUSD: invoice.totalUSD,
+            reference: invoice.invoiceNumber,
+            type: 'Charge',
+          };
+          next[invoice.unitId] = [entry, ...(next[invoice.unitId] || [])];
+        });
+        return next;
+      });
       // Update meter readings status to Invoiced
       if (invoicedMeterIds.length > 0) {
         setMeterReadings(prev => prev.map(m => invoicedMeterIds.includes(m.id) ? { ...m, invoicedStatus: 'Invoiced' } : m));
@@ -648,6 +729,17 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     setPayments(prev => [newPayment, ...prev]);
+    setTenants(prev => prev.map(tenant => tenant.id === paymentData.tenantId ? {
+      ...tenant,
+      balanceUSD: Math.max(0, tenant.balanceUSD - paymentData.amountUSD),
+      balanceZiG: Math.max(0, tenant.balanceUSD - paymentData.amountUSD) * rbzExchangeRate,
+    } : tenant));
+    setSpaces(prev => prev.map(space => space.id === paymentData.unitId ? {
+      ...space,
+      rentalAccumulationUSD: Math.max(0, space.rentalAccumulationUSD - paymentData.amountUSD),
+      paidThisMonthUSD: space.paidThisMonthUSD + paymentData.amountUSD,
+      lastPaymentDate: paymentData.paymentDate,
+    } : space));
 
     // Update Space Ledger
     const spaceId = paymentData.unitId;
