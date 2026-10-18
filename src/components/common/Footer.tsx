@@ -1,5 +1,4 @@
 import React from 'react';
-import { APP_VERSION } from '@/services/mockData';
 
 export const Footer: React.FC = () => {
   return (

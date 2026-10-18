@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Grid, Shield, LogOut, ChevronRight } from 'lucide-react';
 import { useRentFlow } from '@/contexts/RentFlowContext';
 import type { UserRole } from '@/types/rentflow';
@@ -21,7 +21,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ breadcrumbs = [], isAppsHub = false }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const {
     corporateLogo,
     activeRole,

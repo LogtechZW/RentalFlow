@@ -18,12 +18,7 @@ import {
   FileSpreadsheet, 
   Printer, 
   MessageSquare, 
-  Download, 
   Layers, 
-  CheckCircle2, 
-  AlertCircle,
-  Share2,
-  DollarSign
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,7 +33,7 @@ export const BulkFloorStatementsModal: React.FC<BulkFloorStatementsModalProps> =
   onClose,
   property
 }) => {
-  const { spaces, tenants, payments, rbzExchangeRate, sendWhatsAppNotice } = useRentFlow();
+  const { spaces, payments, rbzExchangeRate, sendWhatsAppNotice } = useRentFlow();
   const [selectedFloor, setSelectedFloor] = useState<string>('Ground Floor Retail & Concourse');
   const [isDispatchingWhatsApp, setIsDispatchingWhatsApp] = useState<boolean>(false);
 
