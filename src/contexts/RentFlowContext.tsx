@@ -46,6 +46,7 @@ import {
   RENTFLOW_LOGO_URL,
   SYSTEM_MODULES
 } from '@/services/mockData';
+import { isDemoMode } from '@/lib/runtime';
 
 interface RentFlowContextType {
   currentUser: SystemUser | null;
@@ -177,9 +178,9 @@ function loadStored<T>(key: string, fallback: T): T {
 }
 
 export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<SystemUser | null>(INITIAL_USERS[0]);
-  const [activeRole, setActiveRoleState] = useState<UserRole>('Administrator');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(() => loadStored<SystemUser | null>('rf_session_user', null));
+  const [activeRole, setActiveRoleState] = useState<UserRole>(() => loadStored<UserRole>('rf_session_role', 'Property Manager'));
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(loadStored<SystemUser | null>('rf_session_user', null)));
   const [rbzExchangeRate, setRbzExchangeRateState] = useState<number>(() => loadStored('rf_rbz_rate_v1', DEFAULT_RBZ_RATE));
   const [corporateLogo, setCorporateLogoState] = useState<string>(() => loadStored('rf_logo_v1', RENTFLOW_LOGO_URL));
 
@@ -250,9 +251,19 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => { localStorage.setItem('rf_workflows_data', JSON.stringify(customWorkflows)); }, [customWorkflows]);
   useEffect(() => { localStorage.setItem('rf_module_thumbnails_data', JSON.stringify(moduleThumbnails)); }, [moduleThumbnails]);
   useEffect(() => { localStorage.setItem('rf_rbz_rate_data', JSON.stringify(rbzExchangeRate)); }, [rbzExchangeRate]);
+  useEffect(() => {
+    if (currentUser && isAuthenticated) {
+      localStorage.setItem('rf_session_user', JSON.stringify(currentUser));
+      localStorage.setItem('rf_session_role', JSON.stringify(activeRole));
+    }
+  }, [currentUser, activeRole, isAuthenticated]);
 
   // Authentication
   const signIn = (email: string) => {
+    if (!isDemoMode) {
+      toast.error('This deployment requires secure Supabase authentication. Configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.');
+      return false;
+    }
     const found = INITIAL_USERS.find(u => u.email.toLowerCase() === email.toLowerCase()) || {
       id: `user-${Date.now()}`,
       name: email.split('@')[0],
@@ -267,6 +278,10 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const signUp = (name: string, email: string, role: UserRole) => {
+    if (!isDemoMode) {
+      toast.error('Self-service registration is unavailable until secure authentication is configured.');
+      return false;
+    }
     const newUser: SystemUser = {
       id: `user-${Date.now()}`,
       name,
@@ -283,9 +298,15 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const signOut = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
+    localStorage.removeItem('rf_session_user');
+    localStorage.removeItem('rf_session_role');
   };
 
   const setActiveRole = (role: UserRole) => {
+    if (!currentUser?.availableRoles.includes(role)) {
+      toast.error('Your account is not assigned this role.');
+      return;
+    }
     setActiveRoleState(role);
   };
 

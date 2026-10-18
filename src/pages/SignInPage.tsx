@@ -12,6 +12,7 @@ import {
 } from '@/services/mockData';
 import { Lock, Mail, ArrowRight, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { isDemoMode } from '@/lib/runtime';
 
 export const SignInPage: React.FC = () => {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ export const SignInPage: React.FC = () => {
       toast.error('Please enter a valid email address.');
       return;
     }
-    signIn(email);
+    if (!signIn(email)) return;
     toast.success('Successfully authenticated!');
     navigate('/apps');
   };
@@ -125,7 +126,7 @@ export const SignInPage: React.FC = () => {
           </form>
 
           {/* Quick Demo Role Accounts */}
-          <div className="pt-2 border-t border-border/60">
+          {isDemoMode && <div className="pt-2 border-t border-border/60">
             <span className="text-[11px] font-semibold text-muted-foreground block mb-2 flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-primary" />
               Quick Demo Access by Role:
@@ -144,7 +145,7 @@ export const SignInPage: React.FC = () => {
                 </Button>
               ))}
             </div>
-          </div>
+          </div>}
 
           <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-md p-2.5 text-[11px] text-emerald-400">
             <strong>ZIMRA Dual-Currency Advisory:</strong> Invoicing and receipts automatically itemize USD Nostro and ZiG according to official RBZ interbank rate.

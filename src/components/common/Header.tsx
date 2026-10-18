@@ -122,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({ breadcrumbs = [], isAppsHub = fa
             <DropdownMenuContent align="end" className="w-52">
               <DropdownMenuLabel className="text-xs text-muted-foreground">Switch Active Role</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {(['Administrator', 'Property Manager', 'Accountant', 'Property Owner', 'Tenant'] as UserRole[]).map((r) => (
+              {(currentUser?.availableRoles ?? [activeRole]).map((r) => (
                 <DropdownMenuItem
                   key={r}
                   onClick={() => handleRoleChange(r)}

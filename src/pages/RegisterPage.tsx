@@ -29,7 +29,7 @@ export const RegisterPage: React.FC = () => {
       toast.error('Please enter your full name and email.');
       return;
     }
-    signUp(name, email, role);
+    if (!signUp(name, email, role)) return;
     toast.success('Account created! Please proceed to Sign In.');
     navigate('/signin');
   };

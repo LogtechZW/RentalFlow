@@ -6,6 +6,7 @@ import { RentFlowProvider } from '@/contexts/RentFlowContext';
 import { MobileBottomNav } from '@/components/common/MobileBottomNav';
 import { GlobalBackground } from '@/components/common/GlobalBackground';
 import { WorkViewScaleHUD } from '@/components/common/WorkViewScaleHUD';
+import { RouteGuard } from '@/components/common/RouteGuard';
 import { routes } from './routes';
 
 const App: React.FC = () => {
@@ -21,7 +22,7 @@ const App: React.FC = () => {
                 <Route
                   key={index}
                   path={route.path}
-                  element={route.element}
+                  element={<RouteGuard>{route.element}</RouteGuard>}
                 />
               ))}
               <Route path="*" element={<Navigate to="/" replace />} />

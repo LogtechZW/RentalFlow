@@ -1,8 +1,6 @@
-# Welcome to Your MeDo Project
-MeDo Application Link URL
-    URL:https://medo.dev/projects/app-f5oh0w21fegx
+# RentalFlow
 
-# Welcome to Your Miaoda Project
+RentalFlow is a commercial rental, tenant, lease, invoicing, payment and maintenance management application. It supports a local demo workflow now and includes a secure multi-tenant Supabase foundation for production rollout.
 
 ## Project Info
 
@@ -75,20 +73,17 @@ Alternatively, use the official installer: Visit the Node.js official website. D
 # Step 2: Verify installation: Open Command Prompt (cmd) or your IDE terminal, and type `node -v` and `npm -v` to check if Node.js and npm are installed correctly.
 ```
 
-### After installation, follow these steps:
+### Run locally
 
 ```
-# Step 1: Download the code package
-# Step 2: Extract the code package
-# Step 3: Open the code package with your IDE and navigate into the code directory
-# Step 4: In the IDE terminal, run the command to install dependencies: npm i
-# Step 5: In the IDE terminal, run the command to start the development server: npm run dev -- --host 127.0.0.1
-# Step 6: if step 5 failed, try this command to start the development server: npx vite --host 127.0.0.1
+npm install
+copy .env.example .env
+npm run dev
 ```
 
-### How to develop backend services?
+### Production deployment
 
-Configure environment variables and install relevant dependencies.If you need to use a database, please use the official version of Supabase.
+Read [the deployment guide](docs/DEPLOYMENT.md) before publishing. It includes environment variables, Supabase RLS setup, billing recommendations, onboarding, and single-user/multi-user guidance.
 
 ## Learn More
 
