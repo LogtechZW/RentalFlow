@@ -1,0 +1,1028 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import type {
+  UserRole,
+  PropertyPortfolio,
+  Property,
+  Space,
+  Tenant,
+  Lease,
+  Invoice,
+  Payment,
+  SpaceLedgerEntry,
+  GeneratorLog,
+  SolarLog,
+  BoreholeLog,
+  UtilityMeterReading,
+  TurnoverSalesDeclaration,
+  MaintenanceTicket,
+  DocumentItem,
+  SystemUser,
+  CustomWorkflowGrouping,
+  WhatsAppReminderRule,
+  WhatsAppLog
+} from '@/types/rentflow';
+import {
+  INITIAL_USERS,
+  INITIAL_PORTFOLIOS,
+  INITIAL_PROPERTIES,
+  INITIAL_SPACES,
+  INITIAL_TENANTS,
+  INITIAL_LEASES,
+  INITIAL_INVOICES,
+  INITIAL_PAYMENTS,
+  INITIAL_SPACE_LEDGERS,
+  INITIAL_GENERATOR_LOGS,
+  INITIAL_SOLAR_LOGS,
+  INITIAL_BOREHOLE_LOGS,
+  INITIAL_METER_READINGS,
+  INITIAL_TURNOVER_DECLARATIONS,
+  INITIAL_MAINTENANCE_TICKETS,
+  INITIAL_DOCUMENTS,
+  INITIAL_CUSTOM_WORKFLOWS,
+  INITIAL_WHATSAPP_RULES,
+  INITIAL_WHATSAPP_LOGS,
+  DEFAULT_RBZ_RATE,
+  RENTFLOW_LOGO_URL,
+  SYSTEM_MODULES
+} from '@/services/mockData';
+
+interface RentFlowContextType {
+  currentUser: SystemUser | null;
+  activeRole: UserRole;
+  isAuthenticated: boolean;
+  rbzExchangeRate: number;
+  corporateLogo: string;
+  isMonthEndActive: boolean;
+  moduleThumbnails: Record<string, string>;
+
+  // Data Collections
+  portfolios: PropertyPortfolio[];
+  properties: Property[];
+  spaces: Space[];
+  tenants: Tenant[];
+  leases: Lease[];
+  invoices: Invoice[];
+  payments: Payment[];
+  spaceLedgers: Record<string, SpaceLedgerEntry[]>;
+  generatorLogs: GeneratorLog[];
+  solarLogs: SolarLog[];
+  boreholeLogs: BoreholeLog[];
+  meterReadings: UtilityMeterReading[];
+  turnoverDeclarations: TurnoverSalesDeclaration[];
+  maintenanceTickets: MaintenanceTicket[];
+  documents: DocumentItem[];
+  customWorkflows: CustomWorkflowGrouping[];
+  whatsappRules: WhatsAppReminderRule[];
+  whatsappLogs: WhatsAppLog[];
+
+  // Actions
+  signIn: (email: string) => boolean;
+  signUp: (name: string, email: string, role: UserRole) => boolean;
+  signOut: () => void;
+  setActiveRole: (role: UserRole) => void;
+  setRbzExchangeRate: (rate: number) => void;
+  setCorporateLogo: (logo: string) => void;
+  setMonthEndActive: (active: boolean) => void;
+
+  // Module Thumbnails
+  updateModuleThumbnail: (moduleId: string, imageUrl: string) => void;
+  resetModuleThumbnail: (moduleId: string) => void;
+
+  // Space Ledger & Recalculation
+  addSpacePaymentAdjustment: (spaceId: string, entry: Omit<SpaceLedgerEntry, 'id'>) => void;
+  allocateTenantToSpace: (spaceId: string, tenantId: string) => void;
+  deallocateTenantFromSpace: (spaceId: string) => void;
+
+  // Entity Mutations
+  addPortfolio: (portfolio: Omit<PropertyPortfolio, 'id'>) => void;
+  updatePortfolio: (id: string, updates: Partial<PropertyPortfolio>) => void;
+  deletePortfolio: (id: string) => void;
+
+  addProperty: (property: Omit<Property, 'id'>) => void;
+  updateProperty: (id: string, updates: Partial<Property>) => void;
+  deleteProperty: (id: string) => void;
+
+  addSpace: (space: Omit<Space, 'id'>) => void;
+  updateSpace: (id: string, updates: Partial<Space>) => void;
+  deleteSpace: (id: string) => void;
+
+  addTenant: (tenant: Omit<Tenant, 'id'>) => void;
+  updateTenant: (id: string, updates: Partial<Tenant>) => void;
+  deleteTenant: (id: string) => void;
+
+  addLease: (lease: Omit<Lease, 'id'>) => void;
+  updateLease: (id: string, updates: Partial<Lease>) => void;
+  deleteLease: (id: string) => void;
+  signLease: (leaseId: string, signature: string) => void;
+
+  addInvoice: (invoice: Omit<Invoice, 'id'>) => void;
+  updateInvoice: (id: string, updates: Partial<Invoice>) => void;
+  deleteInvoice: (id: string) => void;
+  createBulkInvoices: (propertyIds: string[], billingPeriod: string) => number;
+
+  recordPayment: (payment: Omit<Payment, 'id' | 'receiptNumber'>) => Payment;
+
+  addMaintenanceTicket: (ticket: Omit<MaintenanceTicket, 'id' | 'ticketNumber' | 'createdAt'>) => void;
+  updateMaintenanceTicket: (id: string, updates: Partial<MaintenanceTicket>) => void;
+  deleteMaintenanceTicket: (id: string) => void;
+
+  addGeneratorLog: (log: Omit<GeneratorLog, 'id'>) => void;
+  deleteGeneratorLog: (id: string) => void;
+  apportionCAMDieselGenerator: (propertyId: string, totalCostUSD: number) => void;
+
+  addSolarLog: (log: Omit<SolarLog, 'id'>) => void;
+  addBoreholeLog: (log: Omit<BoreholeLog, 'id'>) => void;
+  addMeterReading: (reading: Omit<UtilityMeterReading, 'id'>) => void;
+  deleteMeterReading: (id: string) => void;
+  apportionMeterToInvoice: (readingId: string, invoiceId?: string) => void;
+
+  addTurnoverDeclaration: (declaration: Omit<TurnoverSalesDeclaration, 'id'>) => void;
+  auditTurnoverDeclaration: (id: string, status: 'Audited' | 'Invoiced', notes?: string) => void;
+
+  addDocument: (doc: Omit<DocumentItem, 'id' | 'uploadDate'>) => void;
+  deleteDocument: (id: string) => void;
+
+  addCustomWorkflow: (name: string, moduleIds: string[]) => void;
+  deleteCustomWorkflow: (id: string) => void;
+
+  sendWhatsAppNotice: (tenantId: string, message: string, type: WhatsAppLog['type']) => void;
+
+  // Bulk Operations
+  bulkDeleteProperties: () => void;
+  bulkDeleteSpaces: () => void;
+  bulkDeleteTenants: () => void;
+  bulkDeleteInvoices: () => void;
+  bulkDeletePayments: () => void;
+  bulkDeleteLeases: () => void;
+  bulkDeleteMaintenanceTickets: () => void;
+
+  cleanSlateReset: () => void;
+  resetToZeroData: () => void;
+  populateSampleData: () => void;
+  autoLinkProperties: () => void;
+}
+
+const RentFlowContext = createContext<RentFlowContextType | undefined>(undefined);
+
+// LocalStorage persistence helper
+function loadStored<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.error(`Error loading ${key} from storage:`, err);
+  }
+  return fallback;
+}
+
+export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentUser, setCurrentUser] = useState<SystemUser | null>(INITIAL_USERS[0]);
+  const [activeRole, setActiveRoleState] = useState<UserRole>('Administrator');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [rbzExchangeRate, setRbzExchangeRateState] = useState<number>(() => loadStored('rf_rbz_rate_v1', DEFAULT_RBZ_RATE));
+  const [corporateLogo, setCorporateLogoState] = useState<string>(() => loadStored('rf_logo_v1', RENTFLOW_LOGO_URL));
+
+  // Month-end auto trigger: last 3 days of current calendar month or test toggle
+  const [isMonthEndActive, setMonthEndActive] = useState<boolean>(() => {
+    const today = new Date();
+    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    return today.getDate() >= lastDayOfMonth - 3;
+  });
+
+  // Custom module thumbnails map
+  const [moduleThumbnails, setModuleThumbnails] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const mod of SYSTEM_MODULES) {
+      initial[mod.id] = mod.defaultImage;
+    }
+    return loadStored('rf_module_thumbnails_v1', initial);
+  });
+
+  // Core Collections with Permanent LocalStorage Persistence (un-versioned keys, never overwritten across updates)
+  const [portfolios, setPortfolios] = useState<PropertyPortfolio[]>(() => {
+    const loaded = loadStored<PropertyPortfolio[]>('rf_portfolios_data', INITIAL_PORTFOLIOS);
+    return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_PORTFOLIOS;
+  });
+  const [properties, setProperties] = useState<Property[]>(() => {
+    const loaded = loadStored<Property[]>('rf_properties_data', INITIAL_PROPERTIES);
+    return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_PROPERTIES;
+  });
+  const [spaces, setSpaces] = useState<Space[]>(() => {
+    const loaded = loadStored<Space[]>('rf_spaces_data', INITIAL_SPACES);
+    return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_SPACES;
+  });
+  const [tenants, setTenants] = useState<Tenant[]>(() => {
+    const loaded = loadStored<Tenant[]>('rf_tenants_data', INITIAL_TENANTS);
+    return Array.isArray(loaded) && loaded.length > 0 ? loaded : INITIAL_TENANTS;
+  });
+  const [leases, setLeases] = useState<Lease[]>(() => loadStored('rf_leases_data', []));
+  const [invoices, setInvoices] = useState<Invoice[]>(() => loadStored('rf_invoices_data', []));
+  const [payments, setPayments] = useState<Payment[]>(() => loadStored('rf_payments_data', []));
+  const [spaceLedgers, setSpaceLedgers] = useState<Record<string, SpaceLedgerEntry[]>>(() => loadStored('rf_space_ledgers_data', {}));
+  const [generatorLogs, setGeneratorLogs] = useState<GeneratorLog[]>(() => loadStored('rf_gen_logs_data', []));
+  const [solarLogs, setSolarLogs] = useState<SolarLog[]>(() => loadStored('rf_solar_logs_data', []));
+  const [boreholeLogs, setBoreholeLogs] = useState<BoreholeLog[]>(() => loadStored('rf_borehole_logs_data', []));
+  const [meterReadings, setMeterReadings] = useState<UtilityMeterReading[]>(() => loadStored('rf_meter_readings_data', INITIAL_METER_READINGS));
+  const [turnoverDeclarations, setTurnoverDeclarations] = useState<TurnoverSalesDeclaration[]>(() => loadStored('rf_turnover_data', []));
+  const [maintenanceTickets, setMaintenanceTickets] = useState<MaintenanceTicket[]>(() => loadStored('rf_tickets_data', []));
+  const [documents, setDocuments] = useState<DocumentItem[]>(() => loadStored('rf_documents_data', []));
+  const [customWorkflows, setCustomWorkflows] = useState<CustomWorkflowGrouping[]>(() => loadStored('rf_workflows_data', INITIAL_CUSTOM_WORKFLOWS));
+  const [whatsappRules, setWhatsappRules] = useState<WhatsAppReminderRule[]>(() => loadStored('rf_whatsapp_rules_data', INITIAL_WHATSAPP_RULES));
+  const [whatsappLogs, setWhatsappLogs] = useState<WhatsAppLog[]>(() => loadStored('rf_whatsapp_logs_data', []));
+
+  // Sync state changes to LocalStorage under permanent un-versioned keys
+  useEffect(() => { localStorage.setItem('rf_spaces_data', JSON.stringify(spaces)); }, [spaces]);
+  useEffect(() => { localStorage.setItem('rf_properties_data', JSON.stringify(properties)); }, [properties]);
+  useEffect(() => { localStorage.setItem('rf_portfolios_data', JSON.stringify(portfolios)); }, [portfolios]);
+  useEffect(() => { localStorage.setItem('rf_tenants_data', JSON.stringify(tenants)); }, [tenants]);
+  useEffect(() => { localStorage.setItem('rf_leases_data', JSON.stringify(leases)); }, [leases]);
+  useEffect(() => { localStorage.setItem('rf_invoices_data', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { localStorage.setItem('rf_payments_data', JSON.stringify(payments)); }, [payments]);
+  useEffect(() => { localStorage.setItem('rf_space_ledgers_data', JSON.stringify(spaceLedgers)); }, [spaceLedgers]);
+  useEffect(() => { localStorage.setItem('rf_gen_logs_data', JSON.stringify(generatorLogs)); }, [generatorLogs]);
+  useEffect(() => { localStorage.setItem('rf_solar_logs_data', JSON.stringify(solarLogs)); }, [solarLogs]);
+  useEffect(() => { localStorage.setItem('rf_borehole_logs_data', JSON.stringify(boreholeLogs)); }, [boreholeLogs]);
+  useEffect(() => { localStorage.setItem('rf_meter_readings_data', JSON.stringify(meterReadings)); }, [meterReadings]);
+  useEffect(() => { localStorage.setItem('rf_turnover_data', JSON.stringify(turnoverDeclarations)); }, [turnoverDeclarations]);
+  useEffect(() => { localStorage.setItem('rf_tickets_data', JSON.stringify(maintenanceTickets)); }, [maintenanceTickets]);
+  useEffect(() => { localStorage.setItem('rf_documents_data', JSON.stringify(documents)); }, [documents]);
+  useEffect(() => { localStorage.setItem('rf_workflows_data', JSON.stringify(customWorkflows)); }, [customWorkflows]);
+  useEffect(() => { localStorage.setItem('rf_module_thumbnails_data', JSON.stringify(moduleThumbnails)); }, [moduleThumbnails]);
+  useEffect(() => { localStorage.setItem('rf_rbz_rate_data', JSON.stringify(rbzExchangeRate)); }, [rbzExchangeRate]);
+
+  // Authentication
+  const signIn = (email: string) => {
+    const found = INITIAL_USERS.find(u => u.email.toLowerCase() === email.toLowerCase()) || {
+      id: `user-${Date.now()}`,
+      name: email.split('@')[0],
+      email,
+      role: 'Property Manager' as UserRole,
+      availableRoles: ['Property Manager', 'Accountant', 'Tenant'] as UserRole[],
+    };
+    setCurrentUser(found);
+    setActiveRoleState(found.role);
+    setIsAuthenticated(true);
+    return true;
+  };
+
+  const signUp = (name: string, email: string, role: UserRole) => {
+    const newUser: SystemUser = {
+      id: `user-${Date.now()}`,
+      name,
+      email,
+      role,
+      availableRoles: [role],
+    };
+    setCurrentUser(newUser);
+    setActiveRoleState(role);
+    setIsAuthenticated(true);
+    return true;
+  };
+
+  const signOut = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+  };
+
+  const setActiveRole = (role: UserRole) => {
+    setActiveRoleState(role);
+  };
+
+  const setRbzExchangeRate = (rate: number) => {
+    setRbzExchangeRateState(rate);
+  };
+
+  const setCorporateLogo = (logo: string) => {
+    setCorporateLogoState(logo);
+  };
+
+  const updateModuleThumbnail = (moduleId: string, imageUrl: string) => {
+    setModuleThumbnails(prev => ({ ...prev, [moduleId]: imageUrl }));
+  };
+
+  const resetModuleThumbnail = (moduleId: string) => {
+    const def = SYSTEM_MODULES.find(m => m.id === moduleId);
+    if (def) {
+      setModuleThumbnails(prev => ({ ...prev, [moduleId]: def.defaultImage }));
+    }
+  };
+
+  // Space Ledger & manual payment adjustment with real-time recalculation
+  const addSpacePaymentAdjustment = (spaceId: string, entry: Omit<SpaceLedgerEntry, 'id'>) => {
+    const newEntry: SpaceLedgerEntry = {
+      ...entry,
+      id: `led-${Date.now()}`,
+    };
+
+    setSpaceLedgers(prev => {
+      const currentList = prev[spaceId] || [];
+      return {
+        ...prev,
+        [spaceId]: [newEntry, ...currentList],
+      };
+    });
+
+    // Recalculate Space status and rental accumulation
+    setSpaces(prev => prev.map(sp => {
+      if (sp.id !== spaceId) return sp;
+      const netAdjustment = entry.chargeUSD - entry.paymentUSD;
+      const newAccumulation = Math.max(0, sp.rentalAccumulationUSD + netAdjustment);
+      const newPaid = entry.paymentUSD > 0 ? sp.paidThisMonthUSD + entry.paymentUSD : sp.paidThisMonthUSD;
+      let newStatus = sp.status;
+      if (sp.status === 'Occupied' || sp.status === 'Overdue') {
+        newStatus = newAccumulation > 0 ? 'Overdue' : 'Occupied';
+      }
+      return {
+        ...sp,
+        rentalAccumulationUSD: newAccumulation,
+        paidThisMonthUSD: newPaid,
+        status: newStatus,
+        lastPaymentDate: entry.paymentUSD > 0 ? entry.date : sp.lastPaymentDate,
+      };
+    }));
+
+    // If space has a tenant, adjust tenant balance too
+    const targetSpace = spaces.find(s => s.id === spaceId);
+    if (targetSpace && targetSpace.currentTenantId) {
+      setTenants(prev => prev.map(t => {
+        if (t.id !== targetSpace.currentTenantId) return t;
+        const newBal = Math.max(0, t.balanceUSD + (entry.chargeUSD - entry.paymentUSD));
+        return {
+          ...t,
+          balanceUSD: newBal,
+          balanceZiG: newBal * rbzExchangeRate,
+          status: newBal > 0 ? 'Overdue' : 'Active',
+        };
+      }));
+    }
+  };
+
+  const allocateTenantToSpace = (spaceId: string, tenantId: string) => {
+    const tenant = tenants.find(t => t.id === tenantId);
+    const space = spaces.find(s => s.id === spaceId);
+    if (!tenant || !space) return;
+
+    setSpaces(prev => prev.map(s => {
+      if (s.id === spaceId) {
+        return {
+          ...s,
+          status: 'Occupied',
+          currentTenantId: tenant.id,
+          currentTenantName: tenant.name,
+        };
+      }
+      return s;
+    }));
+
+    setTenants(prev => prev.map(t => {
+      if (t.id === tenantId) {
+        return {
+          ...t,
+          unitId: space.id,
+          unitNumber: space.unitNumber,
+          propertyId: space.propertyId,
+          propertyName: properties.find(p => p.id === space.propertyId)?.name || t.propertyName,
+          status: 'Active',
+        };
+      }
+      return t;
+    }));
+  };
+
+  const deallocateTenantFromSpace = (spaceId: string) => {
+    setSpaces(prev => prev.map(s => {
+      if (s.id === spaceId) {
+        return {
+          ...s,
+          status: 'Vacant',
+          currentTenantId: undefined,
+          currentTenantName: undefined,
+          leaseId: undefined,
+          rentalAccumulationUSD: 0,
+        };
+      }
+      return s;
+    }));
+  };
+
+  // Portfolios
+  const addPortfolio = (portfolio: Omit<PropertyPortfolio, 'id'>) => {
+    const newPort: PropertyPortfolio = {
+      ...portfolio,
+      id: `port-${Date.now()}`,
+    };
+    setPortfolios(prev => [newPort, ...prev]);
+  };
+
+  const updatePortfolio = (id: string, updates: Partial<PropertyPortfolio>) => {
+    setPortfolios(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+
+  const deletePortfolio = (id: string) => {
+    setPortfolios(prev => prev.filter(p => p.id !== id));
+  };
+
+  // Properties
+  const addProperty = (prop: Omit<Property, 'id'>) => {
+    const newProp: Property = {
+      ...prop,
+      id: `prop-${Date.now()}`,
+    };
+    setProperties(prev => [newProp, ...prev]);
+  };
+
+  const updateProperty = (id: string, updates: Partial<Property>) => {
+    setProperties(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+  };
+
+  const deleteProperty = (id: string) => {
+    setProperties(prev => prev.filter(p => p.id !== id));
+  };
+
+  // Spaces
+  const addSpace = (sp: Omit<Space, 'id'>) => {
+    const newSpace: Space = {
+      ...sp,
+      id: `sp-${Date.now()}`,
+    };
+    setSpaces(prev => [newSpace, ...prev]);
+  };
+
+  const updateSpace = (id: string, updates: Partial<Space>) => {
+    setSpaces(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const deleteSpace = (id: string) => {
+    setSpaces(prev => prev.filter(s => s.id !== id));
+  };
+
+  // Tenants
+  const addTenant = (tent: Omit<Tenant, 'id'>) => {
+    const newTenant: Tenant = {
+      ...tent,
+      id: `ten-${Date.now()}`,
+      balanceZiG: tent.balanceUSD * rbzExchangeRate,
+    };
+    setTenants(prev => [newTenant, ...prev]);
+  };
+
+  const updateTenant = (id: string, updates: Partial<Tenant>) => {
+    setTenants(prev => prev.map(t => {
+      if (t.id === id) {
+        const updated = { ...t, ...updates };
+        if (updates.balanceUSD !== undefined) {
+          updated.balanceZiG = updates.balanceUSD * rbzExchangeRate;
+        }
+        return updated;
+      }
+      return t;
+    }));
+  };
+
+  const deleteTenant = (id: string) => {
+    setTenants(prev => prev.filter(t => t.id !== id));
+  };
+
+  // Leases
+  const addLease = (lease: Omit<Lease, 'id'>) => {
+    const newLease: Lease = {
+      ...lease,
+      id: `lease-${Date.now()}`,
+    };
+    setLeases(prev => [newLease, ...prev]);
+  };
+
+  const updateLease = (id: string, updates: Partial<Lease>) => {
+    setLeases(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+  };
+
+  const signLease = (leaseId: string, signature: string) => {
+    setLeases(prev => prev.map(l => {
+      if (l.id === leaseId) {
+        return {
+          ...l,
+          digitalSignature: signature,
+          signedDate: new Date().toISOString().split('T')[0],
+          status: 'Active',
+        };
+      }
+      return l;
+    }));
+  };
+
+  // Invoices
+  const addInvoice = (inv: Omit<Invoice, 'id'>) => {
+    const newInv: Invoice = {
+      ...inv,
+      id: `inv-${Date.now()}`,
+    };
+    setInvoices(prev => [newInv, ...prev]);
+  };
+
+  const updateInvoice = (id: string, updates: Partial<Invoice>) => {
+    setInvoices(prev => prev.map(inv => inv.id === id ? { ...inv, ...updates } : inv));
+  };
+
+  const deleteInvoice = (id: string) => {
+    setInvoices(prev => prev.filter(inv => inv.id !== id));
+  };
+
+  const createBulkInvoices = (propertyIds: string[], billingPeriod: string): number => {
+    const eligibleSpaces = spaces.filter(s => 
+      s.status === 'Occupied' && 
+      s.currentTenantId &&
+      (propertyIds.length === 0 || propertyIds.includes(s.propertyId))
+    );
+
+    let count = 0;
+    const newInvoices: Invoice[] = [];
+    const invoicedMeterIds: string[] = [];
+
+    for (const sp of eligibleSpaces) {
+      const prop = properties.find(p => p.id === sp.propertyId);
+      const invoiceId = `inv-${Date.now()}-${count}`;
+      
+      // Look up any pending/un-invoiced check sub-meter readings for this space
+      const spaceMeters = meterReadings.filter(mr => 
+        mr.propertyId === sp.propertyId &&
+        mr.unitNumber === sp.unitNumber && 
+        mr.invoicedStatus !== 'Invoiced'
+      );
+
+      const items: Invoice['items'] = [
+        {
+          id: `item-${Date.now()}-rent-${count}`,
+          description: `Base Commercial Rent (${sp.type} ${sp.unitNumber} - ${sp.sizeSqm} sqm)`,
+          amountUSD: sp.baseRentUSD,
+          amountZiG: sp.baseRentUSD * rbzExchangeRate,
+          type: 'Base Rent',
+        },
+        {
+          id: `item-${Date.now()}-cam-${count}`,
+          description: 'CAM Service & Generator Fuel Surcharge',
+          amountUSD: sp.camFeeUSD,
+          amountZiG: sp.camFeeUSD * rbzExchangeRate,
+          type: 'CAM Charge',
+        }
+      ];
+
+      let submeterTotalUSD = 0;
+      for (const meter of spaceMeters) {
+        submeterTotalUSD += meter.totalCostUSD;
+        invoicedMeterIds.push(meter.id);
+        const unitSymbol = meter.meterType === 'Water' ? 'm³' : 'kWh';
+        items.push({
+          id: `item-${Date.now()}-meter-${meter.id}`,
+          description: `${meter.meterType} Check Sub-Meter (${meter.consumption} ${unitSymbol} @ $${meter.ratePerUnitUSD.toFixed(3)}/unit - SN: ${meter.meterSerialNumber || 'SUB-MTR'})`,
+          amountUSD: meter.totalCostUSD,
+          amountZiG: meter.totalCostUSD * rbzExchangeRate,
+          type: 'CAM Charge',
+        });
+      }
+
+      const totalUSD = sp.baseRentUSD + sp.camFeeUSD + submeterTotalUSD;
+
+      const inv: Invoice = {
+        id: invoiceId,
+        invoiceNumber: `INV-${new Date().getFullYear()}-${1000 + invoices.length + count + 1}`,
+        tenantId: sp.currentTenantId!,
+        tenantName: sp.currentTenantName || 'Valued Tenant',
+        propertyId: sp.propertyId,
+        propertyName: prop?.name || 'Commercial Property',
+        unitId: sp.id,
+        unitNumber: sp.unitNumber,
+        issueDate: new Date().toISOString().split('T')[0],
+        dueDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+        billingPeriod,
+        exchangeRate: rbzExchangeRate,
+        items,
+        totalUSD,
+        totalZiG: totalUSD * rbzExchangeRate,
+        status: 'Unpaid',
+        paidUSD: 0,
+        paidZiG: 0,
+      };
+      newInvoices.push(inv);
+      count++;
+    }
+
+    if (newInvoices.length > 0) {
+      setInvoices(prev => [...newInvoices, ...prev]);
+      // Update meter readings status to Invoiced
+      if (invoicedMeterIds.length > 0) {
+        setMeterReadings(prev => prev.map(m => invoicedMeterIds.includes(m.id) ? { ...m, invoicedStatus: 'Invoiced' } : m));
+      }
+    }
+    return count;
+  };
+
+  // Payments
+  const recordPayment = (paymentData: Omit<Payment, 'id' | 'receiptNumber'>): Payment => {
+    const receiptNum = `RCP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newPayment: Payment = {
+      ...paymentData,
+      id: `pay-${Date.now()}`,
+      receiptNumber: receiptNum,
+    };
+
+    setPayments(prev => [newPayment, ...prev]);
+
+    // Update Space Ledger
+    const spaceId = paymentData.unitId;
+    if (spaceId) {
+      addSpacePaymentAdjustment(spaceId, {
+        spaceId,
+        date: paymentData.paymentDate,
+        description: `Payment via ${paymentData.paymentMethod} (${paymentData.referenceNumber})`,
+        chargeUSD: 0,
+        paymentUSD: paymentData.amountUSD,
+        balanceUSD: 0,
+        reference: receiptNum,
+        type: 'Payment',
+      });
+    }
+
+    // Update Invoice if linked
+    if (paymentData.invoiceId) {
+      setInvoices(prev => prev.map(inv => {
+        if (inv.id === paymentData.invoiceId) {
+          const newPaidUSD = inv.paidUSD + paymentData.amountUSD;
+          const newStatus = newPaidUSD >= inv.totalUSD ? 'Paid' : 'Partially Paid';
+          return {
+            ...inv,
+            paidUSD: newPaidUSD,
+            paidZiG: newPaidUSD * rbzExchangeRate,
+            status: newStatus,
+          };
+        }
+        return inv;
+      }));
+    }
+
+    return newPayment;
+  };
+
+  // Maintenance
+  const addMaintenanceTicket = (ticket: Omit<MaintenanceTicket, 'id' | 'ticketNumber' | 'createdAt'>) => {
+    const newTicket: MaintenanceTicket = {
+      ...ticket,
+      id: `tkt-${Date.now()}`,
+      ticketNumber: `MT-${new Date().getFullYear()}-${100 + maintenanceTickets.length + 1}`,
+      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+    };
+    setMaintenanceTickets(prev => [newTicket, ...prev]);
+  };
+
+  const updateMaintenanceTicket = (id: string, updates: Partial<MaintenanceTicket>) => {
+    setMaintenanceTickets(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+  };
+
+  // Infrastructure & CAM Generator Apportionment
+  const addGeneratorLog = (log: Omit<GeneratorLog, 'id'>) => {
+    const newLog: GeneratorLog = {
+      ...log,
+      id: `gen-${Date.now()}`,
+    };
+    setGeneratorLogs(prev => [newLog, ...prev]);
+  };
+
+  const deleteGeneratorLog = (id: string) => {
+    setGeneratorLogs(prev => prev.filter(g => g.id !== id));
+  };
+
+  const apportionCAMDieselGenerator = (propertyId: string, totalCostUSD: number) => {
+    const propSpaces = spaces.filter(s => s.propertyId === propertyId && s.status === 'Occupied');
+    const totalOccupiedSqm = propSpaces.reduce((sum, s) => sum + s.sizeSqm, 0);
+
+    if (totalOccupiedSqm === 0) return;
+
+    // Apportion proportional to sqm
+    for (const sp of propSpaces) {
+      const spaceShareUSD = Number(((sp.sizeSqm / totalOccupiedSqm) * totalCostUSD).toFixed(2));
+      addSpacePaymentAdjustment(sp.id, {
+        spaceId: sp.id,
+        date: new Date().toISOString().split('T')[0],
+        description: `CAM Diesel Generator Apportionment (${sp.sizeSqm} sqm / ${totalOccupiedSqm} sqm)`,
+        chargeUSD: spaceShareUSD,
+        paymentUSD: 0,
+        balanceUSD: spaceShareUSD,
+        reference: `GEN-CAM-${Date.now()}`,
+        type: 'CAM',
+      });
+    }
+  };
+
+  const addSolarLog = (log: Omit<SolarLog, 'id'>) => {
+    setSolarLogs(prev => [{ ...log, id: `sol-${Date.now()}` }, ...prev]);
+  };
+
+  const addBoreholeLog = (log: Omit<BoreholeLog, 'id'>) => {
+    setBoreholeLogs(prev => [{ ...log, id: `bor-${Date.now()}` }, ...prev]);
+  };
+
+  const addMeterReading = (reading: Omit<UtilityMeterReading, 'id'>) => {
+    setMeterReadings(prev => [{ ...reading, id: `met-${Date.now()}` }, ...prev]);
+  };
+
+  const deleteMeterReading = (id: string) => {
+    setMeterReadings(prev => prev.filter(m => m.id !== id));
+  };
+
+  const apportionMeterToInvoice = (readingId: string, invoiceId?: string) => {
+    setMeterReadings(prev => prev.map(m => {
+      if (m.id === readingId) {
+        return {
+          ...m,
+          invoicedStatus: 'Invoiced',
+          invoiceId: invoiceId || m.invoiceId || `INV-MET-${Date.now().toString().slice(-4)}`
+        };
+      }
+      return m;
+    }));
+  };
+
+  // Turnover Declarations
+  const addTurnoverDeclaration = (decl: Omit<TurnoverSalesDeclaration, 'id'>) => {
+    setTurnoverDeclarations(prev => [{ ...decl, id: `to-${Date.now()}` }, ...prev]);
+  };
+
+  const auditTurnoverDeclaration = (id: string, status: 'Audited' | 'Invoiced', notes?: string) => {
+    setTurnoverDeclarations(prev => prev.map(d => {
+      if (d.id === id) {
+        return {
+          ...d,
+          status,
+          auditNotes: notes || d.auditNotes,
+        };
+      }
+      return d;
+    }));
+  };
+
+  // Documents
+  const addDocument = (doc: Omit<DocumentItem, 'id' | 'uploadDate'>) => {
+    setDocuments(prev => [{
+      ...doc,
+      id: `doc-${Date.now()}`,
+      uploadDate: new Date().toISOString().split('T')[0],
+    }, ...prev]);
+  };
+
+  const deleteDocument = (id: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== id));
+  };
+
+  // Custom Workflows
+  const addCustomWorkflow = (name: string, moduleIds: string[]) => {
+    const newWorkflow: CustomWorkflowGrouping = {
+      id: `cwf-${Date.now()}`,
+      name,
+      moduleIds,
+      userId: currentUser?.id || 'admin',
+      createdAt: new Date().toISOString().split('T')[0],
+    };
+    setCustomWorkflows(prev => [...prev, newWorkflow]);
+  };
+
+  const deleteCustomWorkflow = (id: string) => {
+    setCustomWorkflows(prev => prev.filter(w => w.id !== id));
+  };
+
+  // WhatsApp Notices
+  const sendWhatsAppNotice = (tenantId: string, message: string, type: WhatsAppLog['type']) => {
+    const tenant = tenants.find(t => t.id === tenantId);
+    const newLog: WhatsAppLog = {
+      id: `wlog-${Date.now()}`,
+      tenantName: tenant?.name || 'Tenant',
+      phone: tenant?.phone || '+263 77 000 0000',
+      sentAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: 'Delivered',
+      messagePreview: message,
+      type,
+    };
+    setWhatsappLogs(prev => [newLog, ...prev]);
+  };
+
+  // Bulk Delete Implementations
+  const deleteLease = (id: string) => {
+    setLeases(prev => prev.filter(l => l.id !== id));
+  };
+
+  const deleteMaintenanceTicket = (id: string) => {
+    setMaintenanceTickets(prev => prev.filter(m => m.id !== id));
+  };
+
+  const bulkDeleteProperties = () => setProperties([]);
+  const bulkDeleteSpaces = () => setSpaces([]);
+  const bulkDeleteTenants = () => setTenants([]);
+  const bulkDeleteInvoices = () => setInvoices([]);
+  const bulkDeletePayments = () => setPayments([]);
+  const bulkDeleteLeases = () => setLeases([]);
+  const bulkDeleteMaintenanceTickets = () => setMaintenanceTickets([]);
+
+  // Clean Slate Reset (resets all commercial properties and spaces to zero)
+  const cleanSlateReset = () => {
+    setSpaces([]);
+    setProperties([]);
+    setPortfolios([]);
+    setTenants([]);
+    setLeases([]);
+    setInvoices([]);
+    setPayments([]);
+    setSpaceLedgers({});
+    setGeneratorLogs([]);
+    setSolarLogs([]);
+    setBoreholeLogs([]);
+    setMeterReadings([]);
+    setTurnoverDeclarations([]);
+    setMaintenanceTickets([]);
+    setDocuments([]);
+    const keysToRemove = [
+      'rf_spaces_data', 'rf_properties_data', 'rf_portfolios_data', 'rf_tenants_data',
+      'rf_leases_data', 'rf_invoices_data', 'rf_payments_data', 'rf_space_ledgers_data',
+      'rf_gen_logs_data', 'rf_solar_logs_data', 'rf_borehole_logs_data', 'rf_meter_readings_data',
+      'rf_turnover_data', 'rf_tickets_data', 'rf_documents_data',
+      'rf_spaces_v1', 'rf_properties_v1', 'rf_portfolios_v1', 'rf_tenants_v1',
+      'rf_leases_v1', 'rf_invoices_v1', 'rf_payments_v1', 'rf_space_ledgers_v1',
+      'rf_gen_logs_v1', 'rf_solar_logs_v1', 'rf_borehole_logs_v1', 'rf_meter_readings_v1',
+      'rf_turnover_v1', 'rf_tickets_v1', 'rf_documents_v1'
+    ];
+    keysToRemove.forEach(k => {
+      try { localStorage.removeItem(k); } catch (e) { /* ignore */ }
+    });
+  };
+
+  const resetToZeroData = () => {
+    cleanSlateReset();
+    toast.success('Commercial real estate system reset to zero data state.');
+  };
+
+  const populateSampleData = () => {
+    setPortfolios(INITIAL_PORTFOLIOS);
+    setProperties(INITIAL_PROPERTIES);
+    setSpaces(INITIAL_SPACES);
+    setTenants(INITIAL_TENANTS);
+    setLeases(INITIAL_LEASES);
+    setInvoices(INITIAL_INVOICES);
+    setPayments(INITIAL_PAYMENTS);
+    setSpaceLedgers(INITIAL_SPACE_LEDGERS);
+    setGeneratorLogs(INITIAL_GENERATOR_LOGS);
+    setSolarLogs(INITIAL_SOLAR_LOGS);
+    setBoreholeLogs(INITIAL_BOREHOLE_LOGS);
+    setMeterReadings(INITIAL_METER_READINGS);
+    setTurnoverDeclarations(INITIAL_TURNOVER_DECLARATIONS);
+    setMaintenanceTickets(INITIAL_MAINTENANCE_TICKETS);
+    setDocuments(INITIAL_DOCUMENTS);
+    toast.success('Demonstration commercial portfolio data loaded.');
+  };
+
+  const autoLinkProperties = () => {
+    setProperties(prev => prev.map(p => {
+      if (p.portfolioId && portfolios.some(port => port.id === p.portfolioId)) return p;
+      if (p.locationZone === 'cbd') {
+        const cbdPort = portfolios.find(port => port.id === 'port-1') || portfolios[0];
+        return { ...p, portfolioId: cbdPort.id, portfolioName: cbdPort.name };
+      } else if (p.type === 'Story Building') {
+        const storyPort = portfolios.find(port => port.id === 'port-3') || portfolios[0];
+        return { ...p, portfolioId: storyPort.id, portfolioName: storyPort.name };
+      } else {
+        const subPort = portfolios.find(port => port.id === 'port-2') || portfolios[0];
+        return { ...p, portfolioId: subPort.id, portfolioName: subPort.name };
+      }
+    }));
+
+    setPortfolios(prev => prev.map(port => {
+      const matchingPropIds = properties
+        .filter(p => p.portfolioId === port.id || (port.propertyIds && port.propertyIds.includes(p.id)))
+        .map(p => p.id);
+      return {
+        ...port,
+        propertyIds: Array.from(new Set([...(port.propertyIds || []), ...matchingPropIds])),
+        totalProperties: matchingPropIds.length,
+      };
+    }));
+  };
+
+  return (
+    <RentFlowContext.Provider
+      value={{
+        currentUser,
+        activeRole,
+        isAuthenticated,
+        rbzExchangeRate,
+        corporateLogo,
+        isMonthEndActive,
+        moduleThumbnails,
+
+        portfolios,
+        properties,
+        spaces,
+        tenants,
+        leases,
+        invoices,
+        payments,
+        spaceLedgers,
+        generatorLogs,
+        solarLogs,
+        boreholeLogs,
+        meterReadings,
+        turnoverDeclarations,
+        maintenanceTickets,
+        documents,
+        customWorkflows,
+        whatsappRules,
+        whatsappLogs,
+
+        signIn,
+        signUp,
+        signOut,
+        setActiveRole,
+        setRbzExchangeRate,
+        setCorporateLogo,
+        setMonthEndActive,
+
+        updateModuleThumbnail,
+        resetModuleThumbnail,
+
+        addSpacePaymentAdjustment,
+        allocateTenantToSpace,
+        deallocateTenantFromSpace,
+
+        addPortfolio,
+        updatePortfolio,
+        deletePortfolio,
+
+        addProperty,
+        updateProperty,
+        deleteProperty,
+
+        addSpace,
+        updateSpace,
+        deleteSpace,
+
+        addTenant,
+        updateTenant,
+        deleteTenant,
+
+        addLease,
+        updateLease,
+        signLease,
+
+        addInvoice,
+        updateInvoice,
+        deleteInvoice,
+        createBulkInvoices,
+
+        recordPayment,
+
+        addMaintenanceTicket,
+        updateMaintenanceTicket,
+
+        addGeneratorLog,
+        deleteGeneratorLog,
+        apportionCAMDieselGenerator,
+
+        addSolarLog,
+        addBoreholeLog,
+        addMeterReading,
+        deleteMeterReading,
+        apportionMeterToInvoice,
+
+        addTurnoverDeclaration,
+        auditTurnoverDeclaration,
+
+        addDocument,
+        deleteDocument,
+
+        addCustomWorkflow,
+        deleteCustomWorkflow,
+
+        sendWhatsAppNotice,
+        deleteLease,
+        deleteMaintenanceTicket,
+        bulkDeleteProperties,
+        bulkDeleteSpaces,
+        bulkDeleteTenants,
+        bulkDeleteInvoices,
+        bulkDeletePayments,
+        bulkDeleteLeases,
+        bulkDeleteMaintenanceTickets,
+        cleanSlateReset,
+        resetToZeroData,
+        populateSampleData,
+        autoLinkProperties,
+      }}
+    >
+      {children}
+    </RentFlowContext.Provider>
+  );
+};
+
+export const useRentFlow = () => {
+  const context = useContext(RentFlowContext);
+  if (!context) {
+    throw new Error('useRentFlow must be used within a RentFlowProvider');
+  }
+  return context;
+};

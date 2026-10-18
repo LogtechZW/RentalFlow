@@ -1,0 +1,250 @@
+/* stylelint-disable */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* System Specification & Master Design Blueprint: RentFlow Property Manager
+   "Quiet Couture" Aesthetic: International Enterprise-Grade Dark Corporate Asset Management Platform
+   Deep canvas #0A1128 | Background Shielding rgba(10, 17, 40, 0.85) | Micro-Glassmorphism rgba(16, 28, 64, 0.45) blur(24px) border(255, 255, 255, 0.07) | 6px radius */
+
+@layer base {
+  :root {
+    --radius: 6px;
+
+    /* Deep underlay canvas #0A1128 */
+    --background: 226 60% 10%;
+    --foreground: 210 40% 98%;
+
+    /* Micro-glass card & popover surfaces */
+    --card: 225 60% 16%;
+    --card-foreground: 210 40% 98%;
+    --popover: 225 60% 14%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Restrained enterprise primary (cool silver / slate blue) */
+    --primary: 217 91% 60%;
+    --primary-foreground: 226 60% 10%;
+
+    --secondary: 224 45% 22%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 224 40% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 224 45% 24%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Hairline glass borders rgba(255, 255, 255, 0.07) */
+    --border: 225 35% 25%;
+    --input: 225 35% 25%;
+    --ring: 217 91% 60%;
+
+    /* Status Accent Colors */
+    --status-paid: #10B981;
+    --status-partial: #F59E0B;
+    --status-overdue: #EF4444;
+    --status-pending: #3B82F6;
+    --status-unissued: #64748B;
+    --status-maintenance: #8B5CF6;
+
+    --chart-1: 217 91% 60%;
+    --chart-2: 160 84% 39%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 271 81% 66%;
+
+    --sidebar-background: 226 60% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 226 60% 10%;
+    --sidebar-accent: 224 45% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 225 35% 22%;
+    --sidebar-ring: 217 91% 60%;
+  }
+
+  .dark {
+    --radius: 6px;
+    --background: 226 60% 10%;
+    --foreground: 210 40% 98%;
+    --card: 225 60% 16%;
+    --card-foreground: 210 40% 98%;
+    --popover: 225 60% 14%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 226 60% 10%;
+    --secondary: 224 45% 22%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 224 40% 18%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 224 45% 24%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 225 35% 25%;
+    --input: 225 35% 25%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+  }
+
+  html {
+    background-color: #0A1128;
+    color: #F8FAFC;
+    scroll-behavior: smooth;
+    font-size: 13px;
+  }
+
+  body {
+    background-color: #0A1128;
+    color: #F8FAFC;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Strict monospace numeric font-variant properties for all financial numbers */
+  .font-mono,
+  .tabular-nums,
+  [data-numeric="true"],
+  .financial-num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Display & Brand Font: Instrument Serif / elegant thin-weight serif */
+  h1, h2, h3, h4, h5, h6,
+  .font-serif {
+    font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.4);
+    color: #FFFFFF;
+  }
+}
+
+@layer components {
+  /* Micro-Glassmorphism container formula:
+     background: rgba(16, 28, 64, 0.45); backdrop-filter: blur(24px); border: 1px solid rgba(255, 255, 255, 0.07);
+     Strict 6px border-radius, desktop padding 32px, mobile padding 20px */
+  .micro-glass {
+    background: rgba(16, 28, 64, 0.45) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    border-radius: 6px !important;
+  }
+
+  .micro-glass-card {
+    background: rgba(16, 28, 64, 0.45);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 6px;
+    padding: 20px;
+  }
+  @media (min-width: 1024px) {
+    .micro-glass-card {
+      padding: 32px;
+    }
+  }
+
+  /* Restraint Rule: Four distinct font steps */
+  .title-28 {
+    font-size: 28px !important;
+    line-height: 1.25 !important;
+    font-family: 'Instrument Serif', Georgia, serif !important;
+    font-weight: 400 !important;
+  }
+
+  .header-16 {
+    font-size: 16px !important;
+    line-height: 1.35 !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 500 !important;
+  }
+
+  .metric-11 {
+    font-size: 11px !important;
+    line-height: 1 !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .body-13 {
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    font-weight: 400 !important;
+  }
+
+  /* Status Accents (Desaturated Elegant Corporate Hues) */
+  .status-paid {
+    color: #10B981;
+    border-color: rgba(16, 185, 129, 0.3);
+    background-color: rgba(16, 185, 129, 0.12);
+  }
+  .status-partial {
+    color: #F59E0B;
+    border-color: rgba(245, 158, 11, 0.3);
+    background-color: rgba(245, 158, 11, 0.12);
+  }
+  .status-overdue {
+    color: #EF4444;
+    border-color: rgba(239, 68, 68, 0.3);
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+  .status-pending {
+    color: #3B82F6;
+    border-color: rgba(59, 130, 246, 0.3);
+    background-color: rgba(59, 130, 246, 0.12);
+  }
+  .status-unissued {
+    color: #64748B;
+    border-color: rgba(100, 116, 139, 0.3);
+    background-color: rgba(100, 116, 139, 0.12);
+  }
+  .status-maintenance {
+    color: #8B5CF6;
+    border-color: rgba(139, 92, 246, 0.3);
+    background-color: rgba(139, 92, 246, 0.12);
+  }
+}
+
+/* Print Refinement Architecture: strip UI decoration, backgrounds, navigation, buttons */
+@media print {
+  .no-print,
+  header,
+  footer,
+  nav,
+  button,
+  .print\\:hidden {
+    display: none !important;
+  }
+  body, html {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .micro-glass,
+  .micro-glass-card {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    border: 1px solid #E2E8F0 !important;
+    color: #000000 !important;
+    padding: 12px !important;
+  }
+}
