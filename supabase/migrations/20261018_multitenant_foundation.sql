@@ -208,7 +208,7 @@ create or replace function public.is_org_manager(target_org uuid)
 returns boolean language sql stable security definer set search_path = public as $$
   select exists (select 1 from public.organization_memberships
     where organization_id = target_org and user_id = auth.uid()
-      and role in ('administrator', 'property_manager', 'accountant'));
+      and role in ('administrator', 'property_manager', 'accountant', 'property_owner'));
 $$;
 
 revoke all on function public.is_org_manager(uuid) from public;
@@ -269,15 +269,15 @@ create policy "creator becomes first administrator" on public.organization_membe
   )
 );
 create policy "managers manage memberships" on public.organization_memberships for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id));
-create policy "members read subscriptions" on public.subscriptions for select using (public.is_org_member(organization_id));
-create policy "members read workspace snapshots" on public.workspace_snapshots for select using (public.is_org_member(organization_id));
+create policy "staff read subscriptions" on public.subscriptions for select using (public.is_org_manager(organization_id));
+create policy "staff read workspace snapshots" on public.workspace_snapshots for select using (public.is_org_manager(organization_id));
 create policy "managers mutate workspace snapshots" on public.workspace_snapshots for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id));
 
 do $$
 declare tab text;
 begin
   foreach tab in array array['portfolios','properties','spaces','tenants','leases','invoices','invoice_line_items','payments','maintenance_tickets'] loop
-    execute format('create policy "members access %1$s" on public.%1$I for select using (public.is_org_member(organization_id))', tab);
+    execute format('create policy "staff access %1$s" on public.%1$I for select using (public.is_org_manager(organization_id))', tab);
     execute format('create policy "managers mutate %1$s" on public.%1$I for all using (public.is_org_manager(organization_id)) with check (public.is_org_manager(organization_id))', tab);
   end loop;
 end $$;
