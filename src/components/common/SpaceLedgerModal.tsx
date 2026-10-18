@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DollarSign,
   History,
@@ -52,7 +51,6 @@ export const SpaceLedgerModal: React.FC<SpaceLedgerModalProps> = ({
     updateSpace,
     updateTenant,
     properties,
-    tenants,
     rbzExchangeRate
   } = useRentFlow();
 

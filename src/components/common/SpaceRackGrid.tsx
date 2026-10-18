@@ -8,20 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Search,
   Building,
-  DollarSign,
   Layers,
   MapPin,
-  CheckCircle2,
   Clock,
-  AlertCircle,
   FileText,
-  FileSignature,
-  MessageSquare,
   Receipt,
   UserCheck,
-  UserX,
   UserPlus,
-  ExternalLink,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
@@ -61,7 +54,6 @@ interface SpaceRackGridProps {
   onVacate?: (space: Space) => void;
   onGenerateInvoice?: (space: Space) => void;
   onSendWhatsApp?: (space: Space) => void;
-  variant?: 'compact' | 'tablet';
 }
 
 export const SpaceRackGrid: React.FC<SpaceRackGridProps> = ({
@@ -73,8 +65,7 @@ export const SpaceRackGrid: React.FC<SpaceRackGridProps> = ({
   onAllocate,
   onVacate,
   onGenerateInvoice,
-  onSendWhatsApp,
-  variant = 'tablet'
+  onSendWhatsApp
 }) => {
   const {
     spaces,
