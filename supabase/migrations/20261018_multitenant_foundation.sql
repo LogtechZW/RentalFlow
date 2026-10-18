@@ -79,6 +79,7 @@ create table public.subscriptions (
 create table public.workspace_snapshots (
   organization_id uuid primary key references public.organizations(id) on delete cascade,
   content jsonb not null default '{}'::jsonb,
+  revision integer not null default 0 check (revision >= 0),
   updated_at timestamptz not null default now()
 );
 
@@ -359,6 +360,16 @@ create trigger organizations_updated_at before update on public.organizations fo
 create trigger profiles_updated_at before update on public.profiles for each row execute function public.set_updated_at();
 create trigger subscriptions_updated_at before update on public.subscriptions for each row execute function public.set_updated_at();
 create trigger workspace_snapshots_updated_at before update on public.workspace_snapshots for each row execute function public.set_updated_at();
+
+create or replace function public.bump_workspace_snapshot_revision()
+returns trigger language plpgsql security invoker set search_path = public as $$
+begin
+  new.revision = old.revision + 1;
+  return new;
+end; $$;
+
+create trigger workspace_snapshots_revision before update on public.workspace_snapshots
+  for each row execute function public.bump_workspace_snapshot_revision();
 create trigger portfolios_updated_at before update on public.portfolios for each row execute function public.set_updated_at();
 create trigger properties_updated_at before update on public.properties for each row execute function public.set_updated_at();
 create trigger spaces_updated_at before update on public.spaces for each row execute function public.set_updated_at();

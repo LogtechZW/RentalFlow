@@ -202,6 +202,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(() => !isDemoMode && supabase !== null);
   const workspaceHydratedRef = useRef(isDemoMode);
+  const workspaceRevisionRef = useRef<number | null>(null);
   const [rbzExchangeRate, setRbzExchangeRateState] = useState<number>(() => loadStored('rf_rbz_rate_v1', DEFAULT_RBZ_RATE));
   const [corporateLogo, setCorporateLogoState] = useState<string>(() => loadStored('rf_logo_v1', RENTFLOW_LOGO_URL));
 
@@ -385,13 +386,18 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setWorkspaceLoading(true);
     void supabase
       .from('workspace_snapshots')
-      .select('content')
+      .select('content, revision')
       .eq('organization_id', organizationId)
       .maybeSingle()
       .then(({ data, error }) => {
         if (!active) return;
-        if (error) toast.error(`Unable to load workspace: ${error.message}`);
+        if (error) {
+          toast.error(`Unable to load workspace: ${error.message}`);
+          setWorkspaceLoading(false);
+          return;
+        }
         if (data?.content && typeof data.content === 'object') applyWorkspaceSnapshot(data.content as Partial<WorkspaceSnapshot>);
+        workspaceRevisionRef.current = typeof data?.revision === 'number' ? data.revision : null;
         workspaceHydratedRef.current = true;
         setWorkspaceLoading(false);
       });
@@ -408,10 +414,36 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       rbzExchangeRate, corporateLogo, moduleThumbnails,
     };
     const timeout = window.setTimeout(() => {
-      void client.from('workspace_snapshots').upsert(
-        { organization_id: organizationId, content: snapshot },
-        { onConflict: 'organization_id' },
-      ).then(({ error }) => { if (error) toast.error(`Unable to save workspace: ${error.message}`); });
+      const persistWorkspace = async () => {
+        const expectedRevision = workspaceRevisionRef.current;
+        if (expectedRevision === null) {
+          const { data, error } = await client.from('workspace_snapshots')
+            .insert({ organization_id: organizationId, content: snapshot })
+            .select('revision')
+            .maybeSingle();
+          if (error) {
+            toast.error('This workspace was created by another session. Refresh before saving your changes.');
+            return;
+          }
+          workspaceRevisionRef.current = data?.revision ?? 0;
+          return;
+        }
+
+        const { data, error } = await client.from('workspace_snapshots')
+          .update({ content: snapshot })
+          .eq('organization_id', organizationId)
+          .eq('revision', expectedRevision)
+          .select('revision')
+          .maybeSingle();
+        if (error) {
+          toast.error(`Unable to save workspace: ${error.message}`);
+        } else if (!data) {
+          toast.error('Another team member updated this workspace. Refresh before saving your changes.');
+        } else {
+          workspaceRevisionRef.current = data.revision;
+        }
+      };
+      void persistWorkspace();
     }, 500);
     return () => window.clearTimeout(timeout);
   }, [organizationId, workspaceLoading, portfolios, properties, spaces, tenants, leases, invoices, payments, spaceLedgers, generatorLogs, solarLogs, boreholeLogs, meterReadings, turnoverDeclarations, maintenanceTickets, documents, customWorkflows, whatsappRules, whatsappLogs, rbzExchangeRate, corporateLogo, moduleThumbnails]);
