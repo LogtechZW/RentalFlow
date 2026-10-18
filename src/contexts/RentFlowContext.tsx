@@ -396,6 +396,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (isDemoMode || !supabase || !organizationId || !workspaceHydratedRef.current) return;
+    const client = supabase;
     const snapshot: WorkspaceSnapshot = {
       portfolios, properties, spaces, tenants, leases, invoices, payments, spaceLedgers,
       generatorLogs, solarLogs, boreholeLogs, meterReadings, turnoverDeclarations,
@@ -403,7 +404,7 @@ export const RentFlowProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       rbzExchangeRate, corporateLogo, moduleThumbnails,
     };
     const timeout = window.setTimeout(() => {
-      void supabase.from('workspace_snapshots').upsert(
+      void client.from('workspace_snapshots').upsert(
         { organization_id: organizationId, content: snapshot },
         { onConflict: 'organization_id' },
       ).then(({ error }) => { if (error) toast.error(`Unable to save workspace: ${error.message}`); });
